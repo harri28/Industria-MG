@@ -66,15 +66,34 @@ case 'dashboard':
 
     $aging = $db->query("
         SELECT
-            SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 1  AND 30 THEN total - total_cobrado END) AS d30,
-            SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 31 AND 60 THEN total - total_cobrado END) AS d60,
-            SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 61 AND 90 THEN total - total_cobrado END) AS d90,
-            SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento > 90              THEN total - total_cobrado END) AS d90plus
+            COALESCE(SUM(CASE WHEN fecha_vencimiento >= CURRENT_DATE AND estado IN ('pendiente','parcial') THEN total - total_cobrado END), 0) AS al_dia,
+            COALESCE(SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 1  AND 30 THEN total - total_cobrado END), 0) AS d30,
+            COALESCE(SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 31 AND 60 THEN total - total_cobrado END), 0) AS d60,
+            COALESCE(SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 61 AND 90 THEN total - total_cobrado END), 0) AS d90,
+            COALESCE(SUM(CASE WHEN CURRENT_DATE - fecha_vencimiento > 90              THEN total - total_cobrado END), 0) AS d90plus,
+            COUNT(CASE WHEN fecha_vencimiento >= CURRENT_DATE AND estado IN ('pendiente','parcial') THEN 1 END) AS cnt_al_dia,
+            COUNT(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 1  AND 30 THEN 1 END) AS cnt_d30,
+            COUNT(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 31 AND 60 THEN 1 END) AS cnt_d60,
+            COUNT(CASE WHEN CURRENT_DATE - fecha_vencimiento BETWEEN 61 AND 90 THEN 1 END) AS cnt_d90,
+            COUNT(CASE WHEN CURRENT_DATE - fecha_vencimiento > 90              THEN 1 END) AS cnt_d90plus
         FROM facturas
-        WHERE estado IN ('parcial','vencida')
+        WHERE estado NOT IN ('cobrada','anulada')
     ")->fetch(PDO::FETCH_ASSOC);
 
-    jsonResponse(['ok' => true, 'kpi' => $kpi, 'activas' => (int)$activas, 'aging' => $aging]);
+    $topClientes = $db->query("
+        SELECT c.razon_social AS cliente,
+               COUNT(f.id) AS facturas,
+               SUM(f.total - f.total_cobrado) AS pendiente,
+               MAX(CASE WHEN f.fecha_vencimiento < CURRENT_DATE THEN (CURRENT_DATE - f.fecha_vencimiento) END) AS max_dias_vencido
+        FROM facturas f
+        JOIN clientes c ON c.id = f.cliente_id
+        WHERE f.estado NOT IN ('cobrada','anulada')
+        GROUP BY c.id, c.razon_social
+        ORDER BY pendiente DESC
+        LIMIT 8
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    jsonResponse(['ok' => true, 'kpi' => $kpi, 'activas' => (int)$activas, 'aging' => $aging, 'top_clientes' => $topClientes]);
 
 // ── facturas_listar ───────────────────────────────────────────────────────────
 case 'facturas_listar':

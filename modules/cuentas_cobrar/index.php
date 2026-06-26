@@ -580,27 +580,74 @@ async function cargarResumen() {
         const r = await apiGet(`${BASE}?action=dashboard`);
         const k = r.kpi;
         const a = r.aging;
-        el.innerHTML = `
-        <div class="stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px">
-            ${kpiCard('fa-clock','Por Cobrar',k.total_pendiente,'var(--warning)')}
-            ${kpiCard('fa-exclamation-triangle','Vencido',k.total_vencido,'var(--danger)')}
-            ${kpiCard('fa-check-circle','Cobrado este Mes',k.cobrado_mes,'var(--success)')}
-            ${kpiCard('fa-file-invoice','Facturas Activas',r.activas,'var(--primary)',true)}
-        </div>
-        <div class="card" style="max-width:520px">
-            <div class="card-header"><h4>Antigüedad de Saldos</h4></div>
-            <div class="card-body">
-                <table class="table" style="font-size:.9rem">
-                    <thead><tr><th>Rango</th><th class="text-right">Monto Pendiente</th></tr></thead>
+        const tc = r.top_clientes || [];
+
+        const agingBuckets = [
+            { label:'Al día',     monto: a.al_dia,   cnt: a.cnt_al_dia,   bg:'#dcfce7', color:'#166534', icon:'fa-circle-check' },
+            { label:'1–30 días',  monto: a.d30,       cnt: a.cnt_d30,      bg:'#fef9c3', color:'#854d0e', icon:'fa-clock' },
+            { label:'31–60 días', monto: a.d60,       cnt: a.cnt_d60,      bg:'#ffedd5', color:'#c2410c', icon:'fa-triangle-exclamation' },
+            { label:'61–90 días', monto: a.d90,       cnt: a.cnt_d90,      bg:'#fee2e2', color:'#b91c1c', icon:'fa-circle-exclamation' },
+            { label:'+90 días',   monto: a.d90plus,   cnt: a.cnt_d90plus,  bg:'#fce7f3', color:'#9d174d', icon:'fa-skull-crossbones' },
+        ];
+
+        const totalAging = agingBuckets.reduce((s, b) => s + parseFloat(b.monto||0), 0);
+
+        const agingHtml = agingBuckets.map(b => {
+            const monto = parseFloat(b.monto||0);
+            const pct   = totalAging > 0 ? (monto / totalAging * 100).toFixed(1) : 0;
+            return `
+            <div style="border-radius:8px;padding:14px 16px;background:${b.bg};border:1px solid ${b.bg}">
+                <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:${b.color};margin-bottom:6px">
+                    <i class="fa ${b.icon}" style="margin-right:4px"></i>${b.label}
+                </div>
+                <div style="font-size:1.05rem;font-weight:700;color:${b.color}">${formatMoney(monto)}</div>
+                <div style="font-size:.72rem;color:${b.color};opacity:.8;margin-top:2px">
+                    ${b.cnt||0} factura${(b.cnt||0)==1?'':'s'} · ${pct}%
+                </div>
+                <div style="height:4px;background:rgba(0,0,0,.08);border-radius:2px;margin-top:8px">
+                    <div style="height:4px;background:${b.color};border-radius:2px;width:${pct}%;transition:width .4s"></div>
+                </div>
+            </div>`;
+        }).join('');
+
+        const topHtml = tc.length ? `
+            <div class="card" style="margin-top:16px">
+                <div class="card-header">
+                    <span class="card-title"><i class="fa fa-users"></i> Clientes con mayor saldo pendiente</span>
+                </div>
+                <table class="table" style="margin:0">
+                    <thead><tr><th>Cliente</th><th class="text-right">Pendiente</th><th class="text-right">Facturas</th><th>Máx. atraso</th></tr></thead>
                     <tbody>
-                        <tr><td>1 – 30 días</td>    <td class="text-right">${formatMoney(a.d30||0)}</td></tr>
-                        <tr><td>31 – 60 días</td>   <td class="text-right">${formatMoney(a.d60||0)}</td></tr>
-                        <tr><td>61 – 90 días</td>   <td class="text-right">${formatMoney(a.d90||0)}</td></tr>
-                        <tr><td>Más de 90 días</td> <td class="text-right" style="color:var(--danger);font-weight:700">${formatMoney(a.d90plus||0)}</td></tr>
+                    ${tc.map(c => `
+                        <tr>
+                            <td style="font-size:.85rem">${escHtml(c.cliente)}</td>
+                            <td class="text-right" style="font-size:.85rem;font-weight:600">${formatMoney(c.pendiente)}</td>
+                            <td class="text-right" style="font-size:.85rem">${c.facturas}</td>
+                            <td style="font-size:.82rem">${c.max_dias_vencido
+                                ? `<span style="color:#b91c1c;font-weight:600">${c.max_dias_vencido} días</span>`
+                                : '<span style="color:#166534">Al día</span>'}</td>
+                        </tr>`).join('')}
                     </tbody>
                 </table>
+            </div>` : '';
+
+        el.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px">
+            ${kpiCard('fa-clock','Por Cobrar',k.total_pendiente,'var(--warning)')}
+            ${kpiCard('fa-triangle-exclamation','Vencido',k.total_vencido,'var(--danger)')}
+            ${kpiCard('fa-circle-check','Cobrado este Mes',k.cobrado_mes,'var(--success)')}
+            ${kpiCard('fa-file-invoice','Facturas Activas',r.activas,'var(--primary)',true)}
+        </div>
+        <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+                <span class="card-title"><i class="fa fa-clock-rotate-left"></i> Antigüedad de saldos por cobrar</span>
+                <span style="font-size:.8rem;color:var(--text-muted)">Total pendiente: <strong>${formatMoney(totalAging)}</strong></span>
             </div>
-        </div>`;
+            <div style="padding:16px;display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+                ${agingHtml}
+            </div>
+        </div>
+        ${topHtml}`;
     } catch(e) {
         el.innerHTML = `<div class="text-center text-danger">${e.message}</div>`;
     }
