@@ -109,7 +109,7 @@ $page_breadcrumb = $page_breadcrumb ?? '';
     <nav class="sidebar-nav">
         <!-- PRINCIPAL -->
         <div class="nav-section">Principal</div>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>index.php"
+        <a href="<?= APP_BASE ?>index.php"
            class="nav-item <?= $modulo_actual === '' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-gauge"></i></span>
             <span>Dashboard</span>
@@ -117,22 +117,22 @@ $page_breadcrumb = $page_breadcrumb ?? '';
 
         <!-- OPERACIONES -->
         <div class="nav-section">Operaciones</div>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/produccion/index.php"
+        <a href="<?= APP_BASE ?>modules/produccion/index.php"
            class="nav-item <?= $modulo_actual === 'produccion' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-industry"></i></span>
             <span>Producción</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/inventarios/index.php"
+        <a href="<?= APP_BASE ?>modules/inventarios/index.php"
            class="nav-item <?= $modulo_actual === 'inventarios' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-boxes-stacked"></i></span>
             <span>Inventarios</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/compras/index.php"
+        <a href="<?= APP_BASE ?>modules/compras/index.php"
            class="nav-item <?= $modulo_actual === 'compras' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-cart-shopping"></i></span>
             <span>Compras</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/activos/index.php"
+        <a href="<?= APP_BASE ?>modules/activos/index.php"
            class="nav-item <?= $modulo_actual === 'activos' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-toolbox"></i></span>
             <span>Activos</span>
@@ -140,17 +140,17 @@ $page_breadcrumb = $page_breadcrumb ?? '';
 
         <!-- COMERCIAL Y DIGITAL -->
         <div class="nav-section">Comercial y Digital</div>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/clientes/index.php"
+        <a href="<?= APP_BASE ?>modules/clientes/index.php"
            class="nav-item <?= $modulo_actual === 'clientes' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-users"></i></span>
             <span>Clientes</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/ventas/index.php"
+        <a href="<?= APP_BASE ?>modules/ventas/index.php"
            class="nav-item <?= $modulo_actual === 'ventas' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-file-invoice-dollar"></i></span>
             <span>Ventas</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/comercializacion/index.php"
+        <a href="<?= APP_BASE ?>modules/comercializacion/index.php"
            class="nav-item <?= $modulo_actual === 'comercial' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-globe"></i></span>
             <span>Comercialización</span>
@@ -158,22 +158,22 @@ $page_breadcrumb = $page_breadcrumb ?? '';
 
         <!-- FINANZAS -->
         <div class="nav-section">Finanzas</div>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/caja/index.php"
+        <a href="<?= APP_BASE ?>modules/caja/index.php"
            class="nav-item <?= $modulo_actual === 'caja' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-cash-register"></i></span>
             <span>Caja</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/cuentas_cobrar/index.php"
+        <a href="<?= APP_BASE ?>modules/cuentas_cobrar/index.php"
            class="nav-item <?= $modulo_actual === 'cuentas_cobrar' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-hand-holding-dollar"></i></span>
             <span>Cuentas por Cobrar</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/cuentas_pagar/index.php"
+        <a href="<?= APP_BASE ?>modules/cuentas_pagar/index.php"
            class="nav-item <?= $modulo_actual === 'cuentas_pagar' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-file-invoice"></i></span>
             <span>Cuentas por Pagar</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/prestamos/index.php"
+        <a href="<?= APP_BASE ?>modules/prestamos/index.php"
            class="nav-item <?= $modulo_actual === 'prestamos' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-hand-holding-dollar"></i></span>
             <span>Préstamos</span>
@@ -181,7 +181,7 @@ $page_breadcrumb = $page_breadcrumb ?? '';
 
         <!-- ANALYTICS -->
         <div class="nav-section">Analytics</div>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/reportes/index.php"
+        <a href="<?= APP_BASE ?>modules/reportes/index.php"
            class="nav-item <?= $modulo_actual === 'reportes' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-chart-bar"></i></span>
             <span>Reportes</span>
@@ -189,17 +189,17 @@ $page_breadcrumb = $page_breadcrumb ?? '';
 
         <!-- SISTEMA -->
         <div class="nav-section">Sistema</div>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/seguridad/index.php"
+        <a href="<?= APP_BASE ?>modules/seguridad/index.php"
            class="nav-item <?= $modulo_actual === 'seguridad' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-shield-halved"></i></span>
             <span>Seguridad</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/configuracion/index.php"
+        <a href="<?= APP_BASE ?>modules/configuracion/index.php"
            class="nav-item <?= $modulo_actual === 'configuracion' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-sliders"></i></span>
             <span>Configuración</span>
         </a>
-        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/capacitacion/index.php"
+        <a href="<?= APP_BASE ?>modules/capacitacion/index.php"
            class="nav-item <?= $modulo_actual === 'capacitacion' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-graduation-cap"></i></span>
             <span>Capacitación</span>
@@ -261,7 +261,7 @@ $page_breadcrumb = $page_breadcrumb ?? '';
                         </div>
                         <?php else: ?>
                         <?php foreach ($avances_bell as $av): ?>
-                        <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>modules/produccion/proyecto.php?id=<?= $av['proyecto_id'] ?>#tabAvances"
+                        <a href="<?= APP_BASE ?>modules/produccion/proyecto.php?id=<?= $av['proyecto_id'] ?>#tabAvances"
                            style="display:block;padding:10px 16px;border-bottom:1px solid #f1f5f9;
                                   text-decoration:none;color:inherit;transition:background .12s"
                            onmouseover="this.style.background='#f8fafc'"
@@ -376,7 +376,7 @@ $page_breadcrumb = $page_breadcrumb ?? '';
                 }
             })();
             </script>
-            <a href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>logout.php"
+            <a href="<?= APP_BASE ?>logout.php"
                class="topbar-btn" title="Cerrar sesión — <?= htmlspecialchars($usuario['nombre']) ?>">
                 <i class="fa fa-right-from-bracket"></i>
             </a>
