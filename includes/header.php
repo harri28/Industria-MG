@@ -7,8 +7,7 @@ require_once __DIR__ . '/../config/database.php';
 // Redirigir al login si no hay sesión activa o está corrupta
 if (empty($_SESSION['usuario']) || !is_array($_SESSION['usuario'])) {
     session_destroy();
-    $base = str_repeat('../', substr_count($_SERVER['REQUEST_URI'], '/') - 2);
-    header('Location: ' . $base . 'login.php');
+    header('Location: ' . APP_BASE . 'login.php');
     exit;
 }
 
@@ -65,9 +64,9 @@ $page_breadcrumb = $page_breadcrumb ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — <?= APP_NAME ?></title>
-    <link rel="stylesheet" href="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>assets/css/style.css">
+    <link rel="stylesheet" href="<?= APP_BASE ?>assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="<?= str_repeat('../', substr_count($uri, '/') - 2) ?>assets/js/main.js"></script>
+    <script src="<?= APP_BASE ?>assets/js/main.js"></script>
     <script>
     try { if (localStorage.getItem('sidebar_collapsed')==='1') document.documentElement.classList.add('sidebar-collapsed'); } catch(e){}
     function toggleSidebar(){
