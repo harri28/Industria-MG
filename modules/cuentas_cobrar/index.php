@@ -37,26 +37,70 @@ require_once __DIR__ . '/../../includes/header.php';
         </div>
     </div>
 
-    <div class="card">
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>Número</th>
-                    <th>Cliente</th>
-                    <th>Concepto</th>
-                    <th>Emisión</th>
-                    <th>Vencimiento</th>
-                    <th class="text-right">Total</th>
-                    <th class="text-right">Cobrado</th>
-                    <th class="text-right">Pendiente</th>
-                    <th>Estado</th>
-                    <th>Acciones</th>
-                </tr>
-            </thead>
-            <tbody id="tbFacturas">
-                <tr><td colspan="10" class="text-center text-muted">Cargando…</td></tr>
-            </tbody>
-        </table>
+    <div style="display:grid;grid-template-columns:1fr 360px;gap:14px;align-items:start">
+        <!-- Lista -->
+        <div class="card" style="min-width:0;overflow:hidden">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Cliente</th>
+                        <th>Vencimiento</th>
+                        <th class="text-right">Total</th>
+                        <th class="text-right">Pendiente</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="tbFacturas">
+                    <tr><td colspan="6" class="text-center text-muted">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Panel de detalle -->
+        <div id="facturaDetalle" style="position:sticky;top:16px">
+            <div style="background:#fff;border-radius:var(--radius);box-shadow:0 1px 6px rgba(0,0,0,.10);overflow:hidden">
+                <div id="fdEmpty" style="padding:48px 24px;text-align:center;color:var(--text-muted)">
+                    <i class="fa fa-file-invoice-dollar" style="font-size:2rem;opacity:.25;margin-bottom:10px;display:block"></i>
+                    Selecciona una factura para ver el detalle
+                </div>
+                <div id="fdContent" style="display:none">
+                    <div id="fdHeader" style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div id="fdNumero" style="font-weight:700;font-size:1rem"></div>
+                            <div id="fdCliente" style="font-size:.82rem;color:var(--text-muted);margin-top:2px"></div>
+                        </div>
+                        <div id="fdBadge"></div>
+                    </div>
+                    <div style="padding:16px 20px;border-bottom:1px solid var(--border)">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem;color:var(--text-muted);margin-bottom:14px">
+                            <div>Emisión: <span id="fdEmision" style="color:var(--text)"></span></div>
+                            <div>Vencimiento: <span id="fdVence" style="color:var(--text)"></span></div>
+                            <div id="fdConceptoWrap" style="grid-column:1/-1;display:none">Concepto: <span id="fdConcepto" style="color:var(--text)"></span></div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+                            <div style="background:var(--bg-secondary);border-radius:8px;padding:10px 6px">
+                                <div style="font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Total</div>
+                                <div id="fdTotal" style="font-size:.95rem;font-weight:700;margin-top:3px"></div>
+                            </div>
+                            <div style="background:#ecfdf5;border-radius:8px;padding:10px 6px">
+                                <div style="font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;color:#16a34a">Cobrado</div>
+                                <div id="fdCobrado" style="font-size:.95rem;font-weight:700;color:#16a34a;margin-top:3px"></div>
+                            </div>
+                            <div style="background:#fffbeb;border-radius:8px;padding:10px 6px">
+                                <div style="font-size:.67rem;text-transform:uppercase;letter-spacing:.06em;color:#d97706">Pendiente</div>
+                                <div id="fdPendiente" style="font-size:.95rem;font-weight:700;color:#d97706;margin-top:3px"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding:14px 20px;border-bottom:1px solid var(--border)">
+                        <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:10px">Historial de Cobros</div>
+                        <div id="fdCobros"></div>
+                    </div>
+                    <div id="fdAcciones" style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -168,22 +212,6 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 
 <!-- ════════════════════════════════════════════════════════════════════════
-     MODAL VER FACTURA
-════════════════════════════════════════════════════════════════════════ -->
-<div id="modalVerFactura" class="modal">
-    <div class="modal-content" style="max-width:700px">
-        <div class="modal-header">
-            <h3 id="verFacturaTitulo">Factura</h3>
-            <button class="modal-close" onclick="Modal.close('modalVerFactura')">&times;</button>
-        </div>
-        <div class="modal-body" id="verFacturaCuerpo">
-        </div>
-        <div class="modal-footer" id="verFacturaFooter">
-        </div>
-    </div>
-</div>
-
-<!-- ════════════════════════════════════════════════════════════════════════
      MODAL REGISTRAR COBRO
 ════════════════════════════════════════════════════════════════════════ -->
 <div id="modalCobro" class="modal">
@@ -279,32 +307,17 @@ async function cargarFacturas() {
     try {
         const d = await apiGet(url);
         if (!d.data.length) {
-            tb.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Sin resultados</td></tr>';
+            tb.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sin resultados</td></tr>';
             return;
         }
         tb.innerHTML = d.data.map(f => `
-        <tr>
+        <tr id="fila-${f.id}" style="cursor:pointer" onclick="verFactura(${f.id})">
             <td><strong>${f.numero}</strong></td>
-            <td>${escHtml(f.cliente)}</td>
-            <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.concepto||'—')}</td>
-            <td>${formatDate(f.fecha_emision)}</td>
+            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(f.cliente)}</td>
             <td>${formatDate(f.fecha_vencimiento)}</td>
             <td class="text-right">${formatMoney(f.total)}</td>
-            <td class="text-right">${formatMoney(f.total_cobrado)}</td>
             <td class="text-right"><strong>${formatMoney(f.pendiente)}</strong></td>
             <td>${badgeFactura(f.estado)}</td>
-            <td>
-                <button class="btn btn-sm btn-secondary" title="Ver detalle" onclick="verFactura(${f.id})">
-                    <i class="fa fa-eye"></i>
-                </button>
-                ${f.estado !== 'cobrada' && f.estado !== 'anulada' ? `
-                <button class="btn btn-sm btn-primary" title="Registrar cobro" onclick="abrirModalCobro(${f.id})">
-                    <i class="fa fa-plus"></i>
-                </button>
-                <button class="btn btn-sm btn-secondary" title="Editar" onclick="editarFactura(${f.id})">
-                    <i class="fa fa-edit"></i>
-                </button>` : ''}
-            </td>
         </tr>`).join('');
     } catch(e) {
         tb.innerHTML = `<tr><td colspan="10" class="text-center text-danger">${e.message}</td></tr>`;
@@ -390,63 +403,71 @@ async function guardarFactura() {
     } catch(e) { Toast.error(e.message); }
 }
 
-// ── ver factura ───────────────────────────────────────────────────────────────
+// ── panel de detalle ─────────────────────────────────────────────────────────
+let _facturaDetalleId = null;
+
 async function verFactura(id) {
+    // Resaltar fila seleccionada
+    document.querySelectorAll('#tbFacturas tr').forEach(r => r.style.background = '');
+    const fila = document.getElementById(`fila-${id}`);
+    if (fila) fila.style.background = 'var(--primary-light, #eff6ff)';
+
+    if (_facturaDetalleId === id) return; // ya cargado
+    _facturaDetalleId = id;
+
+    document.getElementById('fdEmpty').style.display = 'none';
+    const content = document.getElementById('fdContent');
+    content.style.display = 'block';
+    document.getElementById('fdCobros').innerHTML = '<div class="text-muted" style="font-size:.82rem">Cargando…</div>';
+
     try {
         const r = await apiGet(`${BASE}?action=factura_obtener&id=${id}`);
         const f = r.data;
-        document.getElementById('verFacturaTitulo').textContent = `Factura ${f.numero}`;
+        const pendiente = parseFloat(f.total) - parseFloat(f.total_cobrado);
 
-        const cobrosHtml = f.cobros.length
-            ? `<table class="table" style="font-size:.85rem">
-                <thead><tr><th>Fecha</th><th>Monto</th><th>Método</th><th>Referencia</th><th></th></tr></thead>
-                <tbody>
-                ${f.cobros.map(c => `
-                <tr>
-                    <td>${formatDate(c.fecha)}</td>
-                    <td class="text-right">${formatMoney(c.monto)}</td>
-                    <td>${badgeMetodo(c.metodo_pago)}</td>
-                    <td>${escHtml(c.referencia||'—')}</td>
-                    <td>
-                        ${f.estado !== 'cobrada' && f.estado !== 'anulada' ? `
-                        <button class="btn btn-sm btn-secondary" onclick="eliminarCobro(${c.id},${f.id})" title="Eliminar">
-                            <i class="fa fa-trash"></i>
-                        </button>` : ''}
-                    </td>
-                </tr>`).join('')}
-                </tbody>
-               </table>`
-            : '<p class="text-muted" style="font-size:.85rem">Sin cobros registrados.</p>';
+        document.getElementById('fdNumero').textContent  = f.numero;
+        document.getElementById('fdCliente').textContent = f.cliente;
+        document.getElementById('fdBadge').innerHTML     = badgeFactura(f.estado);
+        document.getElementById('fdEmision').textContent = formatDate(f.fecha_emision);
+        document.getElementById('fdVence').textContent   = formatDate(f.fecha_vencimiento);
+        document.getElementById('fdTotal').textContent   = formatMoney(f.total);
+        document.getElementById('fdCobrado').textContent = formatMoney(f.total_cobrado);
+        document.getElementById('fdPendiente').textContent = formatMoney(pendiente);
 
-        document.getElementById('verFacturaCuerpo').innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;font-size:.9rem;margin-bottom:16px">
-            <div><span class="text-muted">Cliente:</span> <strong>${escHtml(f.cliente)}</strong></div>
-            <div><span class="text-muted">Estado:</span> ${badgeFactura(f.estado)}</div>
-            <div><span class="text-muted">Emisión:</span> ${formatDate(f.fecha_emision)}</div>
-            <div><span class="text-muted">Vencimiento:</span> ${formatDate(f.fecha_vencimiento)}</div>
-            ${f.concepto ? `<div style="grid-column:1/-1"><span class="text-muted">Concepto:</span> ${escHtml(f.concepto)}</div>` : ''}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;background:var(--bg-secondary);border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:center;font-size:.9rem">
-            <div><div class="text-muted" style="font-size:.75rem">TOTAL</div><div style="font-size:1.1rem;font-weight:700">${formatMoney(f.total)}</div></div>
-            <div><div class="text-muted" style="font-size:.75rem">COBRADO</div><div style="font-size:1.1rem;font-weight:700;color:var(--success)">${formatMoney(f.total_cobrado)}</div></div>
-            <div><div class="text-muted" style="font-size:.75rem">PENDIENTE</div><div style="font-size:1.1rem;font-weight:700;color:var(--warning)">${formatMoney(parseFloat(f.total)-parseFloat(f.total_cobrado))}</div></div>
-        </div>
-        <div style="font-weight:600;margin-bottom:8px">Historial de Cobros</div>
-        ${cobrosHtml}
-        `;
+        const cw = document.getElementById('fdConceptoWrap');
+        if (f.concepto) {
+            cw.style.display = '';
+            document.getElementById('fdConcepto').textContent = f.concepto;
+        } else { cw.style.display = 'none'; }
 
-        document.getElementById('verFacturaFooter').innerHTML = `
-            <button class="btn btn-secondary" onclick="Modal.close('modalVerFactura')">Cerrar</button>
-            ${f.estado !== 'cobrada' && f.estado !== 'anulada' ? `
-            <button class="btn btn-primary" onclick="Modal.close('modalVerFactura');abrirModalCobro(${f.id})">
+        document.getElementById('fdCobros').innerHTML = f.cobros.length
+            ? f.cobros.map(c => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:.82rem">
+                    <div>
+                        <div style="font-weight:600">${formatMoney(c.monto)}</div>
+                        <div style="color:var(--text-muted)">${formatDate(c.fecha)} · ${badgeMetodo(c.metodo_pago)}</div>
+                        ${c.referencia ? `<div style="color:var(--text-muted)">${escHtml(c.referencia)}</div>` : ''}
+                    </div>
+                    ${f.estado !== 'cobrada' && f.estado !== 'anulada' ? `
+                    <button class="btn btn-xs btn-outline" style="color:var(--danger)" onclick="eliminarCobro(${c.id},${f.id})" title="Eliminar">
+                        <i class="fa fa-trash"></i>
+                    </button>` : ''}
+                </div>`).join('')
+            : '<div class="text-muted" style="font-size:.82rem">Sin cobros registrados.</div>';
+
+        const activos = f.estado !== 'cobrada' && f.estado !== 'anulada';
+        document.getElementById('fdAcciones').innerHTML = `
+            ${activos ? `
+            <button class="btn btn-primary btn-sm" onclick="abrirModalCobro(${f.id})">
                 <i class="fa fa-plus"></i> Registrar Cobro
             </button>
-            <button class="btn btn-secondary" onclick="anularFactura(${f.id})">
+            <button class="btn btn-outline btn-sm" onclick="editarFactura(${f.id})">
+                <i class="fa fa-edit"></i> Editar
+            </button>
+            <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="anularFactura(${f.id})">
                 <i class="fa fa-ban"></i> Anular
             </button>` : ''}
         `;
-
-        Modal.open('modalVerFactura');
     } catch(e) { Toast.error(e.message); }
 }
 
@@ -455,7 +476,9 @@ async function anularFactura(id) {
     try {
         await apiPost(BASE, { action: 'factura_anular', id });
         Toast.success('Factura anulada');
-        Modal.close('modalVerFactura');
+        _facturaDetalleId = null;
+        document.getElementById('fdContent').style.display = 'none';
+        document.getElementById('fdEmpty').style.display = '';
         cargarFacturas();
     } catch(e) { Toast.error(e.message); }
 }
@@ -544,7 +567,7 @@ async function eliminarCobro(cobroId, facturaId) {
     try {
         await apiPost(BASE, { action: 'cobro_eliminar', id: cobroId });
         Toast.success('Cobro eliminado');
-        Modal.close('modalVerFactura');
+        _facturaDetalleId = null; // forzar recarga del panel
         cargarFacturas();
         verFactura(facturaId);
     } catch(e) { Toast.error(e.message); }
