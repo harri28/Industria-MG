@@ -12,6 +12,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="tab" data-group="rep" data-target="tab-inventario"><i class="fa fa-boxes-stacked"></i> Inventario</div>
     <div class="tab" data-group="rep" data-target="tab-alertas"><i class="fa fa-bell"></i> Alertas</div>
     <div class="tab" data-group="rep" data-target="tab-rentabilidad"><i class="fa fa-chart-line"></i> Rentabilidad</div>
+    <div class="tab" data-group="rep" data-target="tab-comprobantes"><i class="fa fa-file-invoice-dollar"></i> Comprobantes</div>
 </div>
 
 <!-- ============================================================
@@ -265,6 +266,71 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 
 <!-- ============================================================
+     COMPROBANTES ELECTRÓNICOS
+     ============================================================ -->
+<div class="tab-content" data-group="rep" id="tab-comprobantes">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <input type="date" class="form-control" id="compDesde" style="width:140px">
+            <input type="date" class="form-control" id="compHasta" style="width:140px">
+            <select class="form-control" id="compTipo" style="width:150px">
+                <option value="">Todos los tipos</option>
+                <option value="01">Factura</option>
+                <option value="03">Boleta</option>
+                <option value="NV">Nota de Venta</option>
+                <option value="07">Nota de Crédito</option>
+                <option value="08">Nota de Débito</option>
+            </select>
+            <select class="form-control" id="compEstado" style="width:140px">
+                <option value="">Todos los estados</option>
+                <option value="emitido">Emitido</option>
+                <option value="aceptado">Aceptado SUNAT</option>
+                <option value="rechazado">Rechazado</option>
+                <option value="anulado">Anulado</option>
+            </select>
+            <input type="text" class="form-control" id="compBuscar" placeholder="N° o cliente…" style="width:160px">
+            <button class="btn btn-secondary" onclick="cargarComprobantes()">
+                <i class="fa fa-filter"></i> Filtrar
+            </button>
+        </div>
+    </div>
+
+    <!-- Resumen por tipo -->
+    <div id="compResumen" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px"></div>
+
+    <!-- Tabla -->
+    <div class="card" style="overflow:hidden">
+        <table class="table" style="margin:0;font-size:.83rem">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Tipo</th>
+                    <th>Cliente</th>
+                    <th>RUC / DNI</th>
+                    <th>Fecha</th>
+                    <th class="text-right">Subtotal</th>
+                    <th class="text-right">IGV</th>
+                    <th class="text-right">Total</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody id="tbComprobantes">
+                <tr><td colspan="9" class="text-center text-muted">Selecciona un rango y filtra</td></tr>
+            </tbody>
+            <tfoot id="tfComprobantes" style="display:none">
+                <tr style="font-weight:700;background:#f8fafc">
+                    <td colspan="5">TOTALES</td>
+                    <td class="text-right" id="compTotalSubtotal"></td>
+                    <td class="text-right" id="compTotalIgv"></td>
+                    <td class="text-right" id="compTotalTotal"></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<!-- ============================================================
      RENTABILIDAD POR PROYECTO
      ============================================================ -->
 <div class="tab-content" data-group="rep" id="tab-rentabilidad">
@@ -321,6 +387,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('comprasHasta').value = hoy;
     document.getElementById('rentDesde').value    = priAno;
     document.getElementById('rentHasta').value    = hoy;
+    document.getElementById('compDesde').value    = priMes;
+    document.getElementById('compHasta').value    = hoy;
 
     cargarKPIs();
     document.getElementById('alertaFiltro').addEventListener('change', cargarAlertas);
@@ -333,6 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'produccion')    cargarProduccion();
         if (target === 'ventas')        cargarVentas();
         if (target === 'rentabilidad')  cargarRentabilidad();
+        if (target === 'comprobantes')  cargarComprobantes();
         if (target === 'compras')   cargarCompras();
     }));
 });
@@ -674,4 +743,98 @@ async function cargarRentabilidad() {
 }
 
 function escHtml(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── COMPROBANTES ELECTRÓNICOS ─────────────────────────────────────────────
+async function cargarComprobantes() {
+    const desde  = document.getElementById('compDesde').value;
+    const hasta  = document.getElementById('compHasta').value;
+    const tipo   = document.getElementById('compTipo').value;
+    const estado = document.getElementById('compEstado').value;
+    const q      = document.getElementById('compBuscar').value.trim();
+    const tb     = document.getElementById('tbComprobantes');
+
+    tb.innerHTML = '<tr><td colspan="9" class="text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Cargando…</td></tr>';
+
+    try {
+        const url = `<?= APP_BASE ?>modules/reportes/api.php?action=comprobantes`
+            + `&desde=${desde}&hasta=${hasta}&tipo=${encodeURIComponent(tipo)}`
+            + `&estado=${estado}&q=${encodeURIComponent(q)}`;
+        const r  = await apiGet(url);
+        const cs = r.comprobantes || [];
+        const rs = r.resumen      || [];
+
+        // Resumen por tipo
+        const resEl = document.getElementById('compResumen');
+        const tipoColors = {
+            '01': ['#dbeafe','#1e40af','Facturas'],
+            '03': ['#dcfce7','#166534','Boletas'],
+            'NV': ['#f1f5f9','#475569','Notas Venta'],
+            '07': ['#fce7f3','#9d174d','Notas Crédito'],
+            '08': ['#ffedd5','#c2410c','Notas Débito'],
+        };
+        resEl.innerHTML = rs.length ? rs.map(r => {
+            const [bg, color, label] = tipoColors[r.tipo_doc] || ['#f1f5f9','#475569', r.tipo_doc_nombre || r.tipo_doc || '—'];
+            return `<div style="border-radius:8px;padding:12px 14px;background:${bg};border:1px solid ${bg}">
+                <div style="font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:${color};margin-bottom:4px">${label}</div>
+                <div style="font-size:1rem;font-weight:700;color:${color}">${formatMoney(r.total)}</div>
+                <div style="font-size:.72rem;color:${color};opacity:.8;margin-top:1px">${r.cantidad} comprobante${r.cantidad==1?'':'s'}</div>
+            </div>`;
+        }).join('') : '';
+
+        if (!cs.length) {
+            tb.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin comprobantes en el período</td></tr>';
+            document.getElementById('tfComprobantes').style.display = 'none';
+            return;
+        }
+
+        const badgeComp = (estado) => {
+            const m = {
+                emitido:   ['#dbeafe','#1e40af','Emitido'],
+                aceptado:  ['#dcfce7','#166534','Aceptado'],
+                rechazado: ['#fee2e2','#b91c1c','Rechazado'],
+                anulado:   ['#f1f5f9','#64748b','Anulado'],
+            };
+            const [bg, c, txt] = m[estado] || ['#f1f5f9','#64748b', estado || '—'];
+            return `<span style="background:${bg};color:${c};padding:2px 8px;border-radius:8px;font-size:.72rem;font-weight:600">${txt}</span>`;
+        };
+
+        const tipoLabel = (cod) => {
+            const m = { '01':'Factura','03':'Boleta','NV':'Nota Venta','07':'N. Crédito','08':'N. Débito' };
+            return m[cod] || cod || '—';
+        };
+
+        let sumSub = 0, sumIgv = 0, sumTot = 0;
+        tb.innerHTML = cs.map(c => {
+            sumSub += parseFloat(c.subtotal || 0);
+            sumIgv += parseFloat(c.igv      || 0);
+            sumTot += parseFloat(c.total    || 0);
+            const tipoDoc = c.tipo_doc || '';
+            const [bg, col] = tipoColors[tipoDoc] ? [tipoColors[tipoDoc][0], tipoColors[tipoDoc][1]] : ['#f1f5f9','#475569'];
+            return `<tr>
+                <td style="font-weight:600;white-space:nowrap">
+                    ${escHtml(c.numero_completo)}
+                    ${c.hash_cdr ? '<i class="fa fa-circle-check" style="color:#16a34a;margin-left:4px;font-size:.75rem" title="CDR recibido"></i>' : ''}
+                </td>
+                <td><span style="background:${bg};color:${col};padding:2px 7px;border-radius:6px;font-size:.72rem;font-weight:600">${tipoLabel(tipoDoc)}</span></td>
+                <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(c.cliente)}">${escHtml(c.cliente)}</td>
+                <td style="color:var(--text-muted)">${escHtml(c.cliente_ruc || '—')}</td>
+                <td style="white-space:nowrap">${formatDate(c.fecha_emision)}</td>
+                <td class="text-right">${formatMoney(c.subtotal)}</td>
+                <td class="text-right">${formatMoney(c.igv)}</td>
+                <td class="text-right" style="font-weight:600">${formatMoney(c.total)}</td>
+                <td>${badgeComp(c.estado)}</td>
+            </tr>`;
+        }).join('');
+
+        // Totales en tfoot
+        const tf = document.getElementById('tfComprobantes');
+        tf.style.display = '';
+        document.getElementById('compTotalSubtotal').textContent = formatMoney(sumSub);
+        document.getElementById('compTotalIgv').textContent      = formatMoney(sumIgv);
+        document.getElementById('compTotalTotal').textContent     = formatMoney(sumTot);
+
+    } catch(e) {
+        tb.innerHTML = `<tr><td colspan="9" class="text-center text-danger">${escHtml(e.message)}</td></tr>`;
+    }
+}
 </script>

@@ -307,6 +307,69 @@ try { switch ($action) {
         }
         jsonResponse(['ok' => true]);
 
+    // ================================================================
+    // REPORTE DE COMPROBANTES ELECTRÓNICOS
+    // ================================================================
+    case 'comprobantes':
+        $desde  = $input['desde']  ?? date('Y-01-01');
+        $hasta  = $input['hasta']  ?? date('Y-m-d');
+        $tipo   = trim($input['tipo']   ?? '');
+        $estado = trim($input['estado'] ?? '');
+        $q      = trim($input['q']      ?? '');
+
+        $conditions = ["ce.fecha_emision BETWEEN :desde AND :hasta"];
+        $params     = [':desde' => $desde, ':hasta' => $hasta];
+
+        if ($tipo)   { $conditions[] = "td.codigo = :tipo";    $params[':tipo']   = $tipo; }
+        if ($estado) { $conditions[] = "ce.estado = :estado";  $params[':estado'] = $estado; }
+        if ($q) {
+            $conditions[] = "(ce.serie || '-' || ce.numero ILIKE :q OR cl.razon_social ILIKE :q OR cl.ruc ILIKE :q)";
+            $params[':q'] = "%$q%";
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        $stmt = $db->prepare("
+            SELECT ce.id,
+                   ce.serie || '-' || ce.numero AS numero_completo,
+                   ce.serie, ce.numero,
+                   td.codigo  AS tipo_doc,
+                   td.nombre  AS tipo_doc_nombre,
+                   ce.fecha_emision,
+                   cl.razon_social AS cliente,
+                   cl.ruc          AS cliente_ruc,
+                   ce.subtotal, ce.igv, ce.total,
+                   ce.estado,
+                   ce.hash_cdr,
+                   ce.estado_cpe,
+                   ce.orden_venta_id
+            FROM comprobantes_electronicos ce
+            JOIN clientes cl                 ON cl.id  = ce.cliente_id
+            LEFT JOIN fe_tipos_documento td  ON td.id  = ce.tipo_documento_id
+            WHERE $where
+            ORDER BY ce.fecha_emision DESC, ce.id DESC
+            LIMIT 500");
+        $stmt->execute($params);
+        $comprobantes = $stmt->fetchAll();
+
+        // Resumen por tipo
+        $stmtR = $db->prepare("
+            SELECT td.codigo AS tipo_doc,
+                   td.nombre AS tipo_doc_nombre,
+                   COUNT(*)  AS cantidad,
+                   SUM(ce.subtotal) AS subtotal,
+                   SUM(ce.igv)      AS igv,
+                   SUM(ce.total)    AS total
+            FROM comprobantes_electronicos ce
+            LEFT JOIN fe_tipos_documento td ON td.id = ce.tipo_documento_id
+            WHERE ce.fecha_emision BETWEEN :desde AND :hasta
+            GROUP BY td.codigo, td.nombre
+            ORDER BY total DESC");
+        $stmtR->execute([':desde' => $desde, ':hasta' => $hasta]);
+        $resumen = $stmtR->fetchAll();
+
+        jsonResponse(['ok' => true, 'comprobantes' => $comprobantes, 'resumen' => $resumen]);
+
     case 'alertas_generar':
         // Generar alertas automáticas
         $generadas = 0;
