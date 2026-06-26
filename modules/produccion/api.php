@@ -1686,6 +1686,58 @@ try {
             $stmt->execute([':pid' => $proyectoId]);
             jsonResponse(['ok' => true, 'piezas' => $stmt->fetchAll()]);
 
+        // ── TRAZABILIDAD DE PIEZA ─────────────────────────────
+        case 'pieza_trazabilidad':
+            $piezaId = (int)($_GET['pieza_id'] ?? $input['pieza_id'] ?? 0);
+            if (!$piezaId) jsonResponse(['error' => 'pieza_id requerido'], 400);
+
+            // Info base de la pieza
+            $stmtPz = $db->prepare("
+                SELECT pz.id, pz.nombre, pz.estado, pz.created_at,
+                       a.nombre AS area_actual_nombre, a.es_externa AS area_actual_externa
+                FROM proyecto_piezas pz
+                LEFT JOIN areas a ON a.id = pz.area_actual_id
+                WHERE pz.id = :id");
+            $stmtPz->execute([':id' => $piezaId]);
+            $pieza = $stmtPz->fetch();
+            if (!$pieza) jsonResponse(['error' => 'Pieza no encontrada'], 404);
+
+            // Partes que componen esta pieza (con su historial de fabricación)
+            $stmtPt = $db->prepare("
+                SELECT pt.id, pt.nombre, pt.orden, pt.estado_fabricacion,
+                       pt.fecha_inicio, pt.fecha_completada,
+                       a.nombre AS area_nombre, a.es_externa,
+                       u.nombre AS usuario_nombre
+                FROM proyecto_partes pt
+                LEFT JOIN areas    a ON a.id = pt.area_id
+                LEFT JOIN usuarios u ON u.id = pt.usuario_completo_id
+                WHERE pt.pieza_id = :pid
+                ORDER BY pt.orden, pt.id");
+            $stmtPt->execute([':pid' => $piezaId]);
+            $partes = $stmtPt->fetchAll();
+
+            // Transformaciones que tuvieron esta pieza como OUTPUT (de dónde proviene)
+            $stmtTr = $db->prepare("
+                SELECT t.id, t.tipo, t.fecha, t.observaciones, t.costo_proceso,
+                       a.nombre AS area_nombre, a.es_externa,
+                       u.nombre AS usuario_nombre,
+                       t.fecha_envio_externo, t.fecha_recepcion_externo, t.proveedor
+                FROM transformaciones t
+                JOIN transformacion_outputs o ON o.transformacion_id = t.id
+                LEFT JOIN areas    a ON a.id = t.area_id
+                LEFT JOIN usuarios u ON u.id = t.usuario_id
+                WHERE o.proyecto_pieza_id = :pid
+                ORDER BY t.fecha");
+            $stmtTr->execute([':pid' => $piezaId]);
+            $transformaciones = $stmtTr->fetchAll();
+
+            jsonResponse([
+                'ok'   => true,
+                'pieza' => $pieza,
+                'partes' => $partes,
+                'transformaciones' => $transformaciones,
+            ]);
+
         case 'formulacion_listar':
             $stmtP = $db->query("
                 SELECT p.id, p.codigo, p.nombre, p.estado, p.prioridad,

@@ -718,6 +718,22 @@ function renderAreaCard($wa, $iconos, $estadoClase, $estadoLabel) {
     </div>
 </div>
 
+<!-- Modal Trazabilidad de Pieza -->
+<div class="modal-overlay" id="modalTrazabilidad">
+    <div class="modal" style="max-width:600px">
+        <div class="modal-header">
+            <span class="modal-title" id="trazTitulo"><i class="fa fa-timeline"></i> Trazabilidad</span>
+            <button class="modal-close"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="modal-body" id="trazCuerpo" style="min-height:140px">
+            <div style="text-align:center;padding:24px;color:var(--text-muted)">Cargando…</div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="Modal.close('modalTrazabilidad')">Cerrar</button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Crear Pieza -->
 <div class="modal-overlay" id="modalCrearPieza">
     <div class="modal" style="max-width:440px">
@@ -1443,6 +1459,10 @@ function renderPiezasProducidas(piezas) {
         const acciones = [];
         const nombreEsc = esc(pz.nombre).replace(/'/g, "\\'");
 
+        acciones.push(`<button class="btn btn-outline btn-sm" onclick="verTrazabilidad(${pz.id})" title="Ver historial de fabricación">
+            <i class="fa fa-timeline"></i>
+        </button>`);
+
         if (pz.estado === 'disponible') {
             acciones.push(`<button class="btn btn-outline btn-sm" onclick="abrirEnviarArea(${pz.id}, '${nombreEsc}')">
                 <i class="fa fa-paper-plane"></i> Enviar a área
@@ -1515,6 +1535,134 @@ async function cancelarEnvioPiezaProyecto(id) {
         if (r.ok) { Toast.success('Pieza devuelta.'); cargarPiezasProducidas(); }
         else      { Toast.error(r.error || 'Error.'); }
     } catch(e) { Toast.error(e.message || 'Error de red.'); }
+}
+
+// ── TRAZABILIDAD ──────────────────────────────────────────────────────────────
+async function verTrazabilidad(piezaId) {
+    document.getElementById('trazTitulo').innerHTML = '<i class="fa fa-timeline"></i> Trazabilidad';
+    document.getElementById('trazCuerpo').innerHTML =
+        '<div style="text-align:center;padding:24px;color:var(--text-muted)"><i class="fa fa-spinner fa-spin"></i> Cargando…</div>';
+    Modal.open('modalTrazabilidad');
+
+    try {
+        const r = await apiGet(`${BASE}?action=pieza_trazabilidad&pieza_id=${piezaId}`);
+        const { pieza, partes, transformaciones } = r;
+
+        document.getElementById('trazTitulo').innerHTML =
+            `<i class="fa fa-timeline"></i> ${esc(pieza.nombre)}`;
+
+        const estadoBadge = badgeEstadoPieza(pieza.estado);
+        const areaBadge   = pieza.area_actual_nombre
+            ? `<span style="font-size:.78rem;color:var(--text-muted);margin-left:8px">
+                <i class="fa fa-location-dot"></i> ${esc(pieza.area_actual_nombre)}
+                ${pieza.area_actual_externa ? '<i class="fa fa-globe" style="color:#f59e0b;margin-left:3px"></i>' : ''}
+               </span>` : '';
+
+        // Línea de tiempo: partes + transformaciones mezcladas por fecha
+        const eventos = [];
+
+        partes.forEach(pt => {
+            const fecha = pt.fecha_completada || pt.fecha_inicio || null;
+            eventos.push({ tipo: 'parte', fecha, data: pt });
+        });
+        transformaciones.forEach(tr => {
+            eventos.push({ tipo: 'transformacion', fecha: tr.fecha, data: tr });
+        });
+
+        // Ordenar por fecha (nulos al final)
+        eventos.sort((a, b) => {
+            if (!a.fecha && !b.fecha) return 0;
+            if (!a.fecha) return 1;
+            if (!b.fecha) return -1;
+            return new Date(a.fecha) - new Date(b.fecha);
+        });
+
+        const estadoFab = {
+            sin_asignar: { txt: 'Sin asignar', color: '#94a3b8' },
+            pendiente:   { txt: 'Pendiente',   color: '#f59e0b' },
+            en_proceso:  { txt: 'En proceso',  color: '#3b82f6' },
+            completada:  { txt: 'Completada',  color: '#16a34a' },
+            integrada:   { txt: 'Integrada',   color: '#7c3aed' },
+            stock:       { txt: 'En stock',    color: '#db2777' },
+        };
+
+        const tipoTr = {
+            combinacion:   { txt: 'Combinación',   icon: 'fa-compress-alt', color: '#7c3aed' },
+            procesamiento: { txt: 'Procesamiento', icon: 'fa-gears',        color: '#0891b2' },
+            finalizacion:  { txt: 'Finalización',  icon: 'fa-flag-checkered', color: '#16a34a' },
+        };
+
+        const timelineHtml = eventos.length ? eventos.map((ev, i) => {
+            const isLast = i === eventos.length - 1;
+            let iconHtml, contenidoHtml;
+
+            if (ev.tipo === 'parte') {
+                const pt = ev.data;
+                const ef = estadoFab[pt.estado_fabricacion] || { txt: pt.estado_fabricacion, color: '#94a3b8' };
+                iconHtml = `<div style="width:30px;height:30px;border-radius:50%;background:${ef.color};
+                             display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                             <i class="fa fa-wrench" style="color:#fff;font-size:.7rem"></i></div>`;
+                contenidoHtml = `
+                    <div style="font-weight:600;font-size:.88rem">${esc(pt.nombre)}</div>
+                    <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">
+                        <span style="color:${ef.color};font-weight:600">${ef.txt}</span>
+                        ${pt.area_nombre ? ` · <i class="fa fa-location-dot"></i> ${esc(pt.area_nombre)}${pt.es_externa ? ' <i class="fa fa-globe" style="color:#f59e0b"></i>' : ''}` : ''}
+                    </div>
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:3px">
+                        ${pt.fecha_inicio    ? `Inicio: ${formatDate(pt.fecha_inicio.split('T')[0])}` : ''}
+                        ${pt.fecha_completada ? ` · Completada: ${formatDate(pt.fecha_completada.split('T')[0])}` : ''}
+                        ${pt.usuario_nombre  ? ` · por ${esc(pt.usuario_nombre)}` : ''}
+                    </div>`;
+            } else {
+                const tr = ev.data;
+                const tt = tipoTr[tr.tipo] || { txt: tr.tipo, icon: 'fa-circle', color: '#64748b' };
+                iconHtml = `<div style="width:30px;height:30px;border-radius:50%;background:${tt.color};
+                             display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                             <i class="fa ${tt.icon}" style="color:#fff;font-size:.7rem"></i></div>`;
+                contenidoHtml = `
+                    <div style="font-weight:600;font-size:.88rem">${tt.txt}
+                        ${tr.area_nombre ? `· <span style="font-weight:400">${esc(tr.area_nombre)}</span>` : ''}
+                    </div>
+                    <div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">
+                        ${tr.fecha ? formatDate(tr.fecha.split('T')[0]) : ''}
+                        ${tr.usuario_nombre ? ` · ${esc(tr.usuario_nombre)}` : ''}
+                        ${tr.costo_proceso > 0 ? ` · Costo: ${formatMoney(tr.costo_proceso)}` : ''}
+                    </div>
+                    ${tr.observaciones ? `<div style="font-size:.78rem;color:var(--text-muted);margin-top:2px">${esc(tr.observaciones)}</div>` : ''}
+                    ${tr.proveedor ? `<div style="font-size:.78rem;color:var(--text-muted)">Proveedor externo: ${esc(tr.proveedor)}</div>` : ''}`;
+            }
+
+            return `
+                <div style="display:flex;gap:12px;position:relative">
+                    <div style="display:flex;flex-direction:column;align-items:center">
+                        ${iconHtml}
+                        ${!isLast ? `<div style="width:2px;flex:1;background:var(--border);margin:4px 0"></div>` : ''}
+                    </div>
+                    <div style="padding-bottom:${isLast ? '0' : '16px'};flex:1">
+                        ${contenidoHtml}
+                    </div>
+                </div>`;
+        }).join('') : `<div class="text-muted" style="font-size:.85rem;padding:8px 0">
+            Sin historial de fabricación registrado aún.</div>`;
+
+        document.getElementById('trazCuerpo').innerHTML = `
+            <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px">
+                ${estadoBadge}${areaBadge}
+                <span style="font-size:.75rem;color:var(--text-muted);margin-left:auto">
+                    Creada: ${formatDate(pieza.created_at ? pieza.created_at.split('T')[0] : '')}
+                </span>
+            </div>
+            ${partes.length || transformaciones.length
+                ? `<div style="font-weight:600;font-size:.8rem;text-transform:uppercase;
+                               letter-spacing:.05em;color:var(--text-muted);margin-bottom:12px">
+                    Historial de fabricación</div>`
+                : ''}
+            ${timelineHtml}`;
+
+    } catch(e) {
+        document.getElementById('trazCuerpo').innerHTML =
+            `<div class="text-muted" style="padding:16px">${esc(e.message)}</div>`;
+    }
 }
 
 // ── FINALIZAR ──
