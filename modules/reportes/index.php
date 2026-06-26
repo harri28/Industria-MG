@@ -13,6 +13,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="tab" data-group="rep" data-target="tab-alertas"><i class="fa fa-bell"></i> Alertas</div>
     <div class="tab" data-group="rep" data-target="tab-rentabilidad"><i class="fa fa-chart-line"></i> Rentabilidad</div>
     <div class="tab" data-group="rep" data-target="tab-comprobantes"><i class="fa fa-file-invoice-dollar"></i> Comprobantes</div>
+    <div class="tab" data-group="rep" data-target="tab-productividad"><i class="fa fa-person-digging"></i> Productividad</div>
 </div>
 
 <!-- ============================================================
@@ -266,6 +267,67 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 
 <!-- ============================================================
+     PRODUCTIVIDAD POR ÁREA
+     ============================================================ -->
+<div class="tab-content" data-group="rep" id="tab-productividad">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <input type="date" class="form-control" id="prodAreaDesde" style="width:140px">
+            <input type="date" class="form-control" id="prodAreaHasta" style="width:140px">
+            <button class="btn btn-secondary" onclick="cargarProductividad()">
+                <i class="fa fa-filter"></i> Filtrar
+            </button>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start">
+        <!-- Tabla por área -->
+        <div class="card" style="overflow:hidden">
+            <div class="card-header"><span class="card-title"><i class="fa fa-location-dot"></i> Métricas por área</span></div>
+            <table class="table" style="margin:0;font-size:.83rem">
+                <thead>
+                    <tr>
+                        <th>Área</th>
+                        <th class="text-right">Completadas</th>
+                        <th class="text-right">Backlog</th>
+                        <th class="text-right">T. Prom.</th>
+                    </tr>
+                </thead>
+                <tbody id="tbProdAreas">
+                    <tr><td colspan="4" class="text-center text-muted">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Tabla operarios -->
+        <div class="card" style="overflow:hidden">
+            <div class="card-header"><span class="card-title"><i class="fa fa-users"></i> Top operarios</span></div>
+            <table class="table" style="margin:0;font-size:.83rem">
+                <thead>
+                    <tr>
+                        <th>Operario</th>
+                        <th>Área</th>
+                        <th class="text-right">Partes</th>
+                        <th class="text-right">T. Prom.</th>
+                    </tr>
+                </thead>
+                <tbody id="tbProdOperarios">
+                    <tr><td colspan="4" class="text-center text-muted">Cargando…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tendencia últimos 30 días -->
+    <div class="card" style="margin-top:16px">
+        <div class="card-header">
+            <span class="card-title"><i class="fa fa-chart-column"></i> Partes completadas — últimos 30 días</span>
+        </div>
+        <div id="prodTendencia" style="padding:16px"></div>
+    </div>
+</div>
+
+<!-- ============================================================
      COMPROBANTES ELECTRÓNICOS
      ============================================================ -->
 <div class="tab-content" data-group="rep" id="tab-comprobantes">
@@ -387,8 +449,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('comprasHasta').value = hoy;
     document.getElementById('rentDesde').value    = priAno;
     document.getElementById('rentHasta').value    = hoy;
-    document.getElementById('compDesde').value    = priMes;
-    document.getElementById('compHasta').value    = hoy;
+    document.getElementById('compDesde').value       = priMes;
+    document.getElementById('compHasta').value       = hoy;
+    document.getElementById('prodAreaDesde').value   = priAno;
+    document.getElementById('prodAreaHasta').value   = hoy;
 
     cargarKPIs();
     document.getElementById('alertaFiltro').addEventListener('change', cargarAlertas);
@@ -401,7 +465,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target === 'produccion')    cargarProduccion();
         if (target === 'ventas')        cargarVentas();
         if (target === 'rentabilidad')  cargarRentabilidad();
-        if (target === 'comprobantes')  cargarComprobantes();
+        if (target === 'comprobantes')   cargarComprobantes();
+        if (target === 'productividad')  cargarProductividad();
         if (target === 'compras')   cargarCompras();
     }));
 });
@@ -743,6 +808,79 @@ async function cargarRentabilidad() {
 }
 
 function escHtml(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── PRODUCTIVIDAD POR ÁREA ────────────────────────────────────────────────
+async function cargarProductividad() {
+    const desde = document.getElementById('prodAreaDesde').value;
+    const hasta = document.getElementById('prodAreaHasta').value;
+
+    document.getElementById('tbProdAreas').innerHTML =
+        '<tr><td colspan="4" class="text-center text-muted"><i class="fa fa-spinner fa-spin"></i></td></tr>';
+    document.getElementById('tbProdOperarios').innerHTML =
+        '<tr><td colspan="4" class="text-center text-muted"><i class="fa fa-spinner fa-spin"></i></td></tr>';
+
+    try {
+        const r  = await apiGet(`<?= APP_BASE ?>modules/reportes/api.php?action=productividad&desde=${desde}&hasta=${hasta}`);
+        const as = r.areas     || [];
+        const op = r.operarios || [];
+        const pd = r.por_dia   || [];
+
+        const maxComp = Math.max(...as.map(a => parseInt(a.completadas)||0), 1);
+
+        document.getElementById('tbProdAreas').innerHTML = as.length
+            ? as.map(a => {
+                const comp    = parseInt(a.completadas) || 0;
+                const backlog = parseInt(a.backlog)     || 0;
+                const tProm   = a.tiempo_promedio_h;
+                const pct     = Math.round((comp / maxComp) * 100);
+                const extIco  = a.es_externa ? ' <i class="fa fa-globe" style="color:#f59e0b;font-size:.72rem" title="Externa"></i>' : '';
+                return `<tr>
+                    <td>
+                        ${escHtml(a.area)}${extIco}
+                        <div style="height:4px;background:#e2e8f0;border-radius:2px;margin-top:4px">
+                            <div style="height:4px;background:var(--primary);border-radius:2px;width:${pct}%"></div>
+                        </div>
+                    </td>
+                    <td class="text-right" style="font-weight:600;color:${comp>0?'#166534':'var(--text-muted)'}">${comp}</td>
+                    <td class="text-right" style="color:${backlog>0?'#d97706':'var(--text-muted)'}">${backlog}</td>
+                    <td class="text-right" style="color:var(--text-muted)">${tProm !== null ? tProm+'h' : '—'}</td>
+                </tr>`;
+            }).join('')
+            : '<tr><td colspan="4" class="text-center text-muted">Sin áreas</td></tr>';
+
+        document.getElementById('tbProdOperarios').innerHTML = op.length
+            ? op.map(o => `<tr>
+                <td>${escHtml(o.usuario)}</td>
+                <td style="color:var(--text-muted)">${escHtml(o.area)}</td>
+                <td class="text-right" style="font-weight:600">${o.completadas}</td>
+                <td class="text-right" style="color:var(--text-muted)">${o.tiempo_prom_h !== null ? o.tiempo_prom_h+'h' : '—'}</td>
+            </tr>`).join('')
+            : '<tr><td colspan="4" class="text-center text-muted">Sin datos en el período</td></tr>';
+
+        // Gráfico de barras CSS (últimos 30 días)
+        const tendEl = document.getElementById('prodTendencia');
+        if (!pd.length) {
+            tendEl.innerHTML = '<div class="text-muted text-center">Sin partes completadas en los últimos 30 días.</div>';
+        } else {
+            const maxD = Math.max(...pd.map(d => parseInt(d.completadas)), 1);
+            tendEl.innerHTML = `<div style="display:flex;align-items:flex-end;gap:4px;height:80px;overflow-x:auto;padding-bottom:4px">
+                ${pd.map(d => {
+                    const h   = Math.round((parseInt(d.completadas)/maxD)*72);
+                    const dia = d.dia ? d.dia.slice(5) : '';
+                    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;min-width:20px">
+                        <div style="font-size:.62rem;color:var(--text-muted)">${d.completadas}</div>
+                        <div style="width:100%;background:var(--primary);border-radius:3px 3px 0 0;height:${h}px;opacity:.8"></div>
+                        <div style="font-size:.6rem;color:var(--text-muted);white-space:nowrap">${dia}</div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+    } catch(e) {
+        document.getElementById('tbProdAreas').innerHTML =
+            `<tr><td colspan="4" class="text-danger">${escHtml(e.message)}</td></tr>`;
+    }
+}
 
 // ── COMPROBANTES ELECTRÓNICOS ─────────────────────────────────────────────
 async function cargarComprobantes() {

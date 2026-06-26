@@ -370,6 +370,68 @@ try { switch ($action) {
 
         jsonResponse(['ok' => true, 'comprobantes' => $comprobantes, 'resumen' => $resumen]);
 
+    // ================================================================
+    // PRODUCTIVIDAD POR ÁREA
+    // ================================================================
+    case 'productividad':
+        $desde = $input['desde'] ?? date('Y-01-01');
+        $hasta = $input['hasta'] ?? date('Y-m-d');
+
+        // Métricas por área: partes completadas, tiempo promedio, backlog
+        $stmt = $db->prepare("
+            SELECT a.id, a.nombre AS area, a.es_externa,
+                   COUNT(pt.id) FILTER (WHERE pt.estado_fabricacion = 'completada'
+                                          AND pt.fecha_completada BETWEEN :desde AND :hasta)
+                       AS completadas,
+                   COUNT(pt.id) FILTER (WHERE pt.estado_fabricacion IN ('pendiente','en_proceso'))
+                       AS backlog,
+                   ROUND(AVG(
+                       EXTRACT(EPOCH FROM (pt.fecha_completada - pt.fecha_inicio)) / 3600
+                   ) FILTER (WHERE pt.estado_fabricacion = 'completada'
+                               AND pt.fecha_inicio IS NOT NULL
+                               AND pt.fecha_completada IS NOT NULL
+                               AND pt.fecha_completada BETWEEN :desde2 AND :hasta2), 1)
+                       AS tiempo_promedio_h
+            FROM areas a
+            LEFT JOIN proyecto_partes pt ON pt.area_id = a.id
+            WHERE a.activo = TRUE
+            GROUP BY a.id, a.nombre, a.es_externa
+            ORDER BY completadas DESC NULLS LAST, a.nombre");
+        $stmt->execute([':desde' => $desde . ' 00:00:00', ':hasta' => $hasta . ' 23:59:59',
+                        ':desde2'=> $desde . ' 00:00:00', ':hasta2'=> $hasta . ' 23:59:59']);
+        $areas = $stmt->fetchAll();
+
+        // Top operarios por partes completadas en el período
+        $stmtU = $db->prepare("
+            SELECT u.nombre AS usuario,
+                   a.nombre AS area,
+                   COUNT(*) AS completadas,
+                   ROUND(AVG(EXTRACT(EPOCH FROM (pt.fecha_completada - pt.fecha_inicio)) / 3600)
+                         FILTER (WHERE pt.fecha_inicio IS NOT NULL), 1) AS tiempo_prom_h
+            FROM proyecto_partes pt
+            JOIN usuarios u ON u.id = pt.usuario_completo_id
+            JOIN areas   a ON a.id  = pt.area_id
+            WHERE pt.estado_fabricacion = 'completada'
+              AND pt.fecha_completada BETWEEN :desde AND :hasta
+            GROUP BY u.id, u.nombre, a.id, a.nombre
+            ORDER BY completadas DESC
+            LIMIT 15");
+        $stmtU->execute([':desde' => $desde . ' 00:00:00', ':hasta' => $hasta . ' 23:59:59']);
+        $operarios = $stmtU->fetchAll();
+
+        // Partes completadas por día (últimos 30 días fijo, para tendencia)
+        $stmtD = $db->query("
+            SELECT DATE(fecha_completada) AS dia,
+                   COUNT(*) AS completadas
+            FROM proyecto_partes
+            WHERE estado_fabricacion = 'completada'
+              AND fecha_completada >= CURRENT_DATE - INTERVAL '30 days'
+            GROUP BY DATE(fecha_completada)
+            ORDER BY dia");
+        $porDia = $stmtD->fetchAll();
+
+        jsonResponse(['ok' => true, 'areas' => $areas, 'operarios' => $operarios, 'por_dia' => $porDia]);
+
     case 'alertas_generar':
         // Generar alertas automáticas
         $generadas = 0;
