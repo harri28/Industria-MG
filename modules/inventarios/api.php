@@ -1,7 +1,9 @@
-﻿<?php
+<?php
 ini_set('display_errors', 0);
 error_reporting(0);
+require_once __DIR__ . '/../../config/session.php';
 require_once __DIR__ . '/../../config/database.php';
+startAppSession();
 header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? '';
