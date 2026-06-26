@@ -345,14 +345,28 @@ try { switch ($action) {
         if (!empty($input['hasta'])) { $where[] = "k.fecha <= :hasta"; $params[':hasta'] = $input['hasta'] . ' 23:59:59'; }
         if (!empty($input['tipo']))  { $where[] = "k.tipo = :tipo";    $params[':tipo']  = $input['tipo']; }
 
+        $wClause = implode(' AND ', $where);
+
+        $stmtStats = $db->prepare("
+            SELECT
+                COALESCE(SUM(CASE WHEN k.tipo='entrada' THEN k.cantidad ELSE 0 END), 0) AS ent_qty,
+                COALESCE(SUM(CASE WHEN k.tipo='entrada' THEN k.cantidad * k.precio_unitario ELSE 0 END), 0) AS ent_val,
+                COALESCE(SUM(CASE WHEN k.tipo='salida'  THEN k.cantidad ELSE 0 END), 0) AS sal_qty,
+                COALESCE(SUM(CASE WHEN k.tipo='salida'  THEN k.cantidad * k.precio_unitario ELSE 0 END), 0) AS sal_val,
+                COALESCE(SUM(CASE WHEN k.tipo='ajuste'  THEN ABS(k.cantidad) ELSE 0 END), 0) AS adj_qty,
+                COUNT(*) AS total
+            FROM kardex k WHERE $wClause");
+        $stmtStats->execute($params);
+        $stats = $stmtStats->fetch();
+
         $stmt = $db->prepare("
             SELECT k.*, u.nombre AS usuario_nombre
             FROM kardex k
             LEFT JOIN usuarios u ON u.id = k.usuario_id
-            WHERE " . implode(' AND ', $where) . "
+            WHERE $wClause
             ORDER BY k.fecha DESC LIMIT 200");
         $stmt->execute($params);
-        jsonResponse(['ok' => true, 'movimientos' => $stmt->fetchAll()]);
+        jsonResponse(['ok' => true, 'movimientos' => $stmt->fetchAll(), 'stats' => $stats]);
 
     // ================================================================
     // CATEGORÃAS

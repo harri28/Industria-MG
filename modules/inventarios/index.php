@@ -143,6 +143,39 @@ require_once __DIR__ . '/../../includes/header.php';
         </button>
     </div>
 
+    <div id="kardexStats" style="display:none;gap:.75rem;margin-bottom:.75rem;grid-template-columns:repeat(3,1fr)">
+        <div style="background:#dcfce7;border:1px solid #86efac;border-radius:var(--radius-sm);padding:.6rem 1rem;display:flex;justify-content:space-between;align-items:center">
+            <div>
+                <div style="font-size:.75rem;color:#16a34a;font-weight:600;text-transform:uppercase">Entradas</div>
+                <div style="font-size:1.1rem;font-weight:700;color:#15803d" id="statsEntQty">0</div>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:.75rem;color:#16a34a">Valor</div>
+                <div style="font-weight:600;color:#15803d" id="statsEntVal">S/ 0</div>
+            </div>
+        </div>
+        <div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:var(--radius-sm);padding:.6rem 1rem;display:flex;justify-content:space-between;align-items:center">
+            <div>
+                <div style="font-size:.75rem;color:#dc2626;font-weight:600;text-transform:uppercase">Salidas</div>
+                <div style="font-size:1.1rem;font-weight:700;color:#b91c1c" id="statsSalQty">0</div>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:.75rem;color:#dc2626">Valor</div>
+                <div style="font-weight:600;color:#b91c1c" id="statsSalVal">S/ 0</div>
+            </div>
+        </div>
+        <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:var(--radius-sm);padding:.6rem 1rem;display:flex;justify-content:space-between;align-items:center">
+            <div>
+                <div style="font-size:.75rem;color:#475569;font-weight:600;text-transform:uppercase">Ajustes</div>
+                <div style="font-size:1.1rem;font-weight:700;color:#334155" id="statsAdjQty">0</div>
+            </div>
+            <div style="text-align:right">
+                <div style="font-size:.75rem;color:#475569">Movimientos</div>
+                <div style="font-weight:600;color:#334155" id="statsTotal">0</div>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
         <div class="table-responsive">
             <table id="tablaKardex">
@@ -152,10 +185,11 @@ require_once __DIR__ . '/../../includes/header.php';
                     <th style="text-align:right">P. Unit.</th>
                     <th style="text-align:right">Saldo Cant.</th>
                     <th style="text-align:right">Saldo Valor</th>
+                    <th>Usuario</th>
                     <th>Observaciones</th>
                 </tr></thead>
                 <tbody>
-                    <tr><td colspan="8" class="text-center text-muted" style="padding:1.5rem">
+                    <tr><td colspan="9" class="text-center text-muted" style="padding:1.5rem">
                         Seleccione un material para ver su kardex
                     </td></tr>
                 </tbody>
@@ -696,8 +730,21 @@ async function cargarKardex() {
     try {
         const d = await apiGet(`${API_INV}?action=kardex_listar&producto_id=${prodId}&desde=${desde}&hasta=${hasta}&tipo=${tipo}`);
         if (!d.ok) return;
+
+        // Stats bar
+        const st = d.stats || {};
+        document.getElementById('statsEntQty').textContent = parseFloat(st.ent_qty||0).toFixed(2);
+        document.getElementById('statsEntVal').textContent = formatMoney(st.ent_val||0);
+        document.getElementById('statsSalQty').textContent = parseFloat(st.sal_qty||0).toFixed(2);
+        document.getElementById('statsSalVal').textContent = formatMoney(st.sal_val||0);
+        document.getElementById('statsAdjQty').textContent = parseFloat(st.adj_qty||0).toFixed(2);
+        document.getElementById('statsTotal').textContent  = st.total || 0;
+        const ksEl = document.getElementById('kardexStats');
+        ksEl.style.display = 'grid';
+
         const tipoColor = { entrada: 'badge-completado', salida: 'badge-cancelado', ajuste: 'badge-normal' };
-        document.querySelector('#tablaKardex tbody').innerHTML = d.movimientos.map(m => `<tr>
+        const rowBorder = { entrada: 'border-left:3px solid #16a34a', salida: 'border-left:3px solid #dc2626', ajuste: 'border-left:3px solid #3b82f6' };
+        document.querySelector('#tablaKardex tbody').innerHTML = d.movimientos.map(m => `<tr style="${rowBorder[m.tipo]||''}">
             <td style="white-space:nowrap">${formatDate(m.fecha)}</td>
             <td><span class="badge ${tipoColor[m.tipo]||'badge-normal'}">${m.tipo}</span></td>
             <td style="font-size:.8rem">${m.referencia_tipo || '—'}</td>
@@ -705,8 +752,9 @@ async function cargarKardex() {
             <td style="text-align:right">${formatMoney(m.precio_unitario)}</td>
             <td style="text-align:right">${m.saldo_cantidad}</td>
             <td style="text-align:right">${formatMoney(m.saldo_valor)}</td>
+            <td style="font-size:.8rem">${m.usuario_nombre || '—'}</td>
             <td style="font-size:.8rem">${m.observaciones || '—'}</td>
-        </tr>`).join('') || '<tr><td colspan="8" class="text-center text-muted" style="padding:1.5rem">Sin movimientos en el periodo</td></tr>';
+        </tr>`).join('') || '<tr><td colspan="9" class="text-center text-muted" style="padding:1.5rem">Sin movimientos en el periodo</td></tr>';
     } catch(e) { Toast.error('Error al cargar kardex'); }
 }
 

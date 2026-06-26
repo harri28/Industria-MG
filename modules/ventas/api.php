@@ -504,11 +504,15 @@ try { switch ($action) {
         $where = ['m.activo=TRUE'];
         $params = [];
         if (!empty($input['cliente_id'])) { $where[]="m.cliente_id=:cid"; $params[':cid']=(int)$input['cliente_id']; }
+        if (!empty($input['estado_venta']) && $input['estado_venta'] !== 'todos') {
+            $where[]="m.estado_venta=:eventa"; $params[':eventa']=$input['estado_venta'];
+        }
         if (!empty($input['buscar'])) {
             $where[]="(m.modelo ILIKE :q OR m.numero_serie ILIKE :q OR m.codigo ILIKE :q OR cl.razon_social ILIKE :q OR p.nombre ILIKE :q)";
             $params[':q']='%'.$input['buscar'].'%';
         }
-        $stmt = $db->prepare("
+        $wClause = implode(' AND ', $where);
+        $stmtMaq = $db->prepare("
             SELECT m.*, cl.razon_social AS cliente_nombre,
                    p.codigo AS producto_codigo,
                    p.nombre AS producto_nombre,
@@ -518,14 +522,27 @@ try { switch ($action) {
                    CASE WHEN m.garantia_hasta >= CURRENT_DATE THEN 'vigente'
                         WHEN m.garantia_hasta IS NULL THEN 'sin_garantia'
                         ELSE 'vencida' END AS estado_garantia,
-                   (m.garantia_hasta - CURRENT_DATE) AS dias_garantia
+                   (m.garantia_hasta - CURRENT_DATE) AS dias_garantia,
+                   ov.codigo AS orden_venta_codigo
             FROM maquinarias m
             LEFT JOIN clientes cl ON cl.id=m.cliente_id
             LEFT JOIN productos p ON p.id=m.producto_id
-            WHERE ".implode(' AND ',$where)."
+            LEFT JOIN ordenes_venta ov ON ov.id=m.orden_venta_id
+            WHERE $wClause
             ORDER BY m.created_at DESC");
-        $stmt->execute($params);
-        jsonResponse(['ok'=>true,'maquinarias'=>$stmt->fetchAll()]);
+        $stmtMaq->execute($params);
+        $maquinarias = $stmtMaq->fetchAll();
+
+        $stmtTotal = $db->prepare("SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN m.estado_venta='disponible' OR m.estado_venta IS NULL THEN 1 ELSE 0 END) AS disponibles,
+            SUM(CASE WHEN m.estado_venta='vendida' THEN 1 ELSE 0 END) AS vendidas,
+            SUM(CASE WHEN m.estado_venta='reservada' THEN 1 ELSE 0 END) AS reservadas
+            FROM maquinarias m WHERE m.activo=TRUE");
+        $stmtTotal->execute();
+        $statsM = $stmtTotal->fetch();
+
+        jsonResponse(['ok'=>true,'maquinarias'=>$maquinarias,'stats'=>$statsM]);
 
     case 'maquinaria_guardar':
         $garantia_hasta = null;

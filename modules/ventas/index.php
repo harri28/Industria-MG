@@ -356,10 +356,33 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
      TAB: MAQUINARIAS
      ============================================================ -->
 <div class="tab-content" data-group="vnt" id="tabMaquinarias">
+    <div id="maqStats" style="display:none;gap:.75rem;margin-bottom:.75rem;grid-template-columns:repeat(3,1fr)">
+        <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:var(--radius-sm);padding:.7rem 1rem;display:flex;align-items:center;gap:.75rem">
+            <i class="fa fa-gears" style="color:var(--primary);font-size:1.4rem"></i>
+            <div><div style="font-size:.72rem;color:#64748b;text-transform:uppercase;font-weight:600">Total</div>
+            <div style="font-size:1.3rem;font-weight:700;color:var(--text)" id="maqStatTotal">0</div></div>
+        </div>
+        <div style="background:#dcfce7;border:1px solid #86efac;border-radius:var(--radius-sm);padding:.7rem 1rem;display:flex;align-items:center;gap:.75rem">
+            <i class="fa fa-circle-check" style="color:#16a34a;font-size:1.4rem"></i>
+            <div><div style="font-size:.72rem;color:#15803d;text-transform:uppercase;font-weight:600">Disponibles</div>
+            <div style="font-size:1.3rem;font-weight:700;color:#15803d" id="maqStatDisp">0</div></div>
+        </div>
+        <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:var(--radius-sm);padding:.7rem 1rem;display:flex;align-items:center;gap:.75rem">
+            <i class="fa fa-cash-register" style="color:#d97706;font-size:1.4rem"></i>
+            <div><div style="font-size:.72rem;color:#92400e;text-transform:uppercase;font-weight:600">Vendidas</div>
+            <div style="font-size:1.3rem;font-weight:700;color:#92400e" id="maqStatVend">0</div></div>
+        </div>
+    </div>
     <div class="card">
         <div class="card-header">
             <span class="card-title"><i class="fa fa-gears"></i> Catalogo de Maquinarias</span>
             <div class="card-actions">
+                <select class="form-control" id="filtroEstadoMaq" style="width:160px" onchange="cargarMaquinarias()">
+                    <option value="todos">Todos los estados</option>
+                    <option value="disponible">Disponible</option>
+                    <option value="vendida">Vendida</option>
+                    <option value="reservada">Reservada</option>
+                </select>
                 <div class="search-box"><span class="icon"><i class="fa fa-search"></i></span>
                     <input type="text" class="form-control" id="buscarMaq" placeholder="Modelo, serie, cliente..." oninput="cargarMaquinarias()">
                 </div>
@@ -370,7 +393,7 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
             <table><thead><tr>
                 <th>Codigo</th><th>Modelo</th><th>Nro. Serie</th><th>Cliente</th>
                 <th class="text-right">Costo</th><th class="text-right">Precio venta</th>
-                <th>Venta</th><th>Garantia</th><th>Acciones</th>
+                <th>Venta / OV</th><th>Garantia</th><th>Acciones</th>
             </tr></thead>
             <tbody id="maquinariasBody"><tr><td colspan="9" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
         </div>
@@ -2201,10 +2224,22 @@ async function eliminarCotizacion(id) {
 
 // MAQUINARIAS
 async function cargarMaquinarias() {
-    const params = new URLSearchParams({action:'maquinarias_listar', buscar:document.getElementById('buscarMaq').value});
+    const estadoFiltro = document.getElementById('filtroEstadoMaq')?.value || 'todos';
+    const params = new URLSearchParams({action:'maquinarias_listar', buscar:document.getElementById('buscarMaq').value, estado_venta:estadoFiltro});
     const d = await apiGet(`${BASE}?${params}`);
     const tbody = document.getElementById('maquinariasBody');
     maquinariasVenta = d.maquinarias||[];
+
+    // Stats cards
+    const st = d.stats || {};
+    const msEl = document.getElementById('maqStats');
+    if (msEl) {
+        document.getElementById('maqStatTotal').textContent = st.total || 0;
+        document.getElementById('maqStatDisp').textContent  = st.disponibles || 0;
+        document.getElementById('maqStatVend').textContent  = st.vendidas || 0;
+        msEl.style.display = 'grid';
+    }
+
     const lista = maquinariasVenta;
     if (!lista.length) { tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted">Sin maquinarias registradas.</td></tr>'; return; }
     const gBadge = { vigente:'badge-entrega', vencida:'badge-retrasado', sin_garantia:'badge-cancelado' };
@@ -2221,7 +2256,7 @@ async function cargarMaquinarias() {
         <td class="text-right font-bold" style="color:var(--primary)">${formatMoney(m.precio_venta_calc || m.precio_venta || 0)}</td>
         <td>
             <span class="badge ${vBadge[m.estado_venta]||'badge-normal'}">${esc((m.estado_venta||'disponible').replace('_',' '))}</span>
-            ${m.fecha_venta?`<div class="text-xs text-muted">${formatDate(m.fecha_venta)}</div>`:''}
+            ${m.orden_venta_codigo ? `<div class="text-xs text-muted">${esc(m.orden_venta_codigo)}</div>` : (m.fecha_venta?`<div class="text-xs text-muted">${formatDate(m.fecha_venta)}</div>`:'')}
         </td>
         <td>
             <span class="badge ${gBadge[m.estado_garantia]||'badge-normal'}">${esc((m.estado_garantia||'sin_garantia').replace('_',' '))}</span>
