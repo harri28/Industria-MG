@@ -1,0 +1,33 @@
+# Sesiones PHP
+storage/sessions/
+
+# Config con credenciales (mantener por separado en cada entorno)
+config/database.php
+
+# Backups de base de datos
+backups/
+
+# Archivos subidos por usuarios
+assets/uploads/
+
+# Documentos generados por SUNAT (XML, CDR, PDF)
+facturacion/storage/
+
+# Certificados SUNAT (sensibles)
+*.pfx
+*.p12
+*.pem
+
+# Archivos de trabajo / diseño locales
+*.xlsx
+*.xls
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporales
+*.tmp
+*.tmp.sql

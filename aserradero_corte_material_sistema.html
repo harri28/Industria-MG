@@ -1,0 +1,315 @@
+
+<h2 class="sr-only">Sistema de gestión de corte de materiales — Aserradero Portátil. Plantilla interactiva con 11 secciones estructurales y tabla de piezas.</h2>
+
+<style>
+.nav-btn { display:flex; align-items:center; gap:8px; width:100%; text-align:left; padding:7px 10px; border-radius:var(--border-radius-md); border:none; background:transparent; cursor:pointer; font-size:13px; color:var(--color-text-secondary); transition:background 0.15s; }
+.nav-btn:hover { background:var(--color-background-secondary); }
+.nav-btn.active { background:var(--color-background-secondary); color:var(--color-text-primary); font-weight:500; border-left:2px solid #BA7517; padding-left:8px; }
+.badge { display:inline-flex; align-items:center; font-size:11px; font-weight:500; padding:2px 7px; border-radius:10px; letter-spacing:0.03em; }
+.badge-torno { background:#FAEEDA; color:#854F0B; }
+.badge-tronz { background:#E6F1FB; color:#185FA5; }
+.badge-taladro { background:#E1F5EE; color:#0F6E56; }
+.badge-escuadra { background:#F1EFE8; color:#5F5E5A; }
+.badge-amoladora { background:#FAECE7; color:#993C1D; }
+.badge-warn { background:#FAEEDA; color:#854F0B; }
+.piece-row { display:grid; grid-template-columns: 44px 70px 90px 1fr 120px; gap:0; border-bottom:0.5px solid var(--color-border-tertiary); }
+.piece-row:last-child { border-bottom:none; }
+.piece-row:hover { background:var(--color-background-secondary); }
+.pc { padding:9px 10px; font-size:13px; color:var(--color-text-primary); display:flex; align-items:center; }
+.pc.muted { color:var(--color-text-secondary); }
+.mat-header { font-size:11px; letter-spacing:0.06em; color:var(--color-text-tertiary); padding:10px 10px 6px; border-top:0.5px solid var(--color-border-tertiary); margin-top:4px; display:flex; align-items:center; gap:8px; }
+.col-head { padding:6px 10px; font-size:11px; letter-spacing:0.05em; color:var(--color-text-tertiary); font-weight:500; display:flex; align-items:center; }
+.status-dot { width:7px; height:7px; border-radius:50%; display:inline-block; margin-right:6px; }
+.dot-pend { background:#EF9F27; }
+.dot-verif { background:#1D9E75; }
+.dot-miss { background:#E24B4A; }
+.measure-missing { color:var(--color-text-warning); font-style:italic; font-size:12px; }
+.section-title { font-size:16px; font-weight:500; margin:0 0 4px; }
+.section-meta { font-size:13px; color:var(--color-text-secondary); }
+input[type=number]::-webkit-inner-spin-button { opacity:1; }
+.obs-tag { font-size:11px; color:var(--color-text-secondary); background:var(--color-background-secondary); border-radius:4px; padding:2px 6px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+</style>
+
+<div style="padding:1rem 0 0;">
+
+  <!-- Header -->
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; padding-bottom:1.25rem; border-bottom:0.5px solid var(--color-border-tertiary);">
+    <div>
+      <div style="font-size:11px; letter-spacing:0.08em; color:var(--color-text-tertiary); margin-bottom:4px;">PLANTILLA DE CORTE DE MATERIALES</div>
+      <h1 style="margin:0; font-size:20px; font-weight:500; color:var(--color-text-primary);">Aserradero portátil</h1>
+    </div>
+    <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label style="font-size:12px; color:var(--color-text-secondary);" for="mc">Máquinas:</label>
+        <input type="number" id="mc" value="20" min="1" max="999" style="width:64px; text-align:center; font-size:15px; font-weight:500;" oninput="refreshAll()" />
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <label style="font-size:12px; color:var(--color-text-secondary);" for="resp">Responsable:</label>
+        <input type="text" id="resp" value="Ing. Responsable" style="width:160px; font-size:13px;" />
+      </div>
+      <button onclick="sendPrompt('¿Cómo puedo calcular el material total necesario para todas las secciones del aserradero portátil? ↗')"><i class="ti ti-send" aria-hidden="true"></i> Calcular totales ↗</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; padding:1.25rem 0;">
+    <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px 14px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-layout-list" aria-hidden="true" style="font-size:13px; vertical-align:-1px; margin-right:4px;"></i>Secciones</div>
+      <div style="font-size:22px; font-weight:500;" id="s-sec">11</div>
+    </div>
+    <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px 14px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-box" aria-hidden="true" style="font-size:13px; vertical-align:-1px; margin-right:4px;"></i>Tipos de piezas</div>
+      <div style="font-size:22px; font-weight:500;" id="s-pieces">44</div>
+    </div>
+    <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px 14px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-alert-triangle" aria-hidden="true" style="font-size:13px; vertical-align:-1px; margin-right:4px;"></i>Medidas pendientes</div>
+      <div style="font-size:22px; font-weight:500; color:var(--color-text-warning);" id="s-miss">28</div>
+    </div>
+    <div style="background:var(--color-background-secondary); border-radius:var(--border-radius-md); padding:12px 14px;">
+      <div style="font-size:12px; color:var(--color-text-secondary); margin-bottom:4px;"><i class="ti ti-tool" aria-hidden="true" style="font-size:13px; vertical-align:-1px; margin-right:4px;"></i>Requieren torno</div>
+      <div style="font-size:22px; font-weight:500;" id="s-torno">9</div>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <div style="display:grid; grid-template-columns:190px minmax(0,1fr); gap:16px; align-items:start;">
+
+    <!-- Sidebar -->
+    <div style="position:sticky; top:0;">
+      <div style="font-size:11px; letter-spacing:0.06em; color:var(--color-text-tertiary); margin-bottom:8px; padding:0 8px;">SECCIONES</div>
+      <div id="nav" style="display:flex; flex-direction:column; gap:2px;"></div>
+      <div style="margin-top:16px; padding:10px; background:var(--color-background-secondary); border-radius:var(--border-radius-md);">
+        <div style="font-size:11px; color:var(--color-text-tertiary); margin-bottom:8px; letter-spacing:0.05em;">PROCESOS</div>
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <span><span class="badge badge-torno">TORNO</span></span>
+          <span><span class="badge badge-tronz">TRONZADORA</span></span>
+          <span><span class="badge badge-taladro">TALADRO</span></span>
+          <span><span class="badge badge-escuadra">ESCUADRA</span></span>
+          <span><span class="badge badge-amoladora">AMOLADORA</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div id="content" style="min-height:400px;"></div>
+  </div>
+</div>
+
+<script>
+const SECTIONS = [
+  { id:'poleas', label:'Estructura de poleas', icon:'ti-circles', pieces:[
+    { mat:'Tubo 2×3×2.5 mm', items:[
+      { qty:1, unit:20, med:'133', pieza:'Travezaño', obs:'Tapar con plancha 3 mm en extremos', proc:'escuadra' },
+      { qty:1, unit:20, med:'17.2', pieza:'Cruz (corta)', obs:'Tapar con plancha 3 mm en extremos', proc:'escuadra' },
+      { qty:1, unit:20, med:'27.7', pieza:'Cruz (larga)', obs:'Tapar con plancha 3 mm en extremos', proc:'escuadra' },
+      { qty:1, unit:20, med:'37', pieza:'Brazo', obs:'', proc:'escuadra' },
+    ]},
+    { mat:'Tubo 3×3×4 mm', items:[
+      { qty:1, unit:20, med:'24.4', pieza:'Travezaño', obs:'Tapar con plancha 3 mm en extremos', proc:'escuadra' },
+    ]},
+    { mat:'Tubo 2×2×6 mm', items:[
+      { qty:1, unit:20, med:null, pieza:'Soporte de guía', obs:'Huecos 5/16, macho 3/8" HC', proc:'taladro' },
+    ]},
+  ]},
+  { id:'cabezal', label:'Castillo / cabezal', icon:'ti-building-arch', pieces:[
+    { mat:'Tubo 2×3×2.5 mm', items:[
+      { qty:2, unit:20, med:'75', pieza:'Patas', obs:'Huecos con broca 1"', proc:'taladro' },
+      { qty:1, unit:20, med:'142.5', pieza:'Parante', obs:'', proc:'escuadra' },
+      { qty:1, unit:20, med:null, pieza:'Travezaño (modificado)', obs:'Verificar medida en campo', proc:null },
+    ]},
+    { mat:'Tubo 3×3×3 mm', items:[
+      { qty:1, unit:20, med:'150', pieza:'Parante', obs:'', proc:'escuadra' },
+    ]},
+    { mat:'Tubo cuadrado 2×2×3 mm', items:[
+      { qty:2, unit:20, med:null, pieza:'Tubo pequeño', obs:'', proc:null },
+      { qty:2, unit:20, med:null, pieza:'Tubo grande', obs:'', proc:null },
+    ]},
+    { mat:'Tubo redondo 2"', items:[
+      { qty:1, unit:20, med:null, pieza:'Eje que envuelve el cable', obs:'', proc:'torno' },
+    ]},
+    { mat:'Fierro liso 7/8', items:[
+      { qty:1, unit:20, med:null, pieza:'Eje que envuelve el cable', obs:'', proc:'torno' },
+      { qty:1, unit:20, med:null, pieza:'Eje auxiliar', obs:'', proc:null },
+    ]},
+  ]},
+  { id:'portapoleas', label:'Porta poleas', icon:'ti-circles-relation', pieces:[
+    { mat:'Canal U 1×2', items:[
+      { qty:2, unit:20, med:null, pieza:'Sujetador de perno templador', obs:'', proc:null },
+    ]},
+    { mat:'Canal U 3×2', items:[
+      { qty:2, unit:20, med:null, pieza:'Sujetador polea de abajo', obs:'', proc:null },
+      { qty:2, unit:20, med:null, pieza:'Sujetador polea de arriba', obs:'', proc:null },
+    ]},
+  ]},
+  { id:'regla', label:'Regla', icon:'ti-ruler', pieces:[
+    { mat:'Platina 2×1/8', items:[
+      { qty:1, unit:20, med:'100', pieza:'Regla', obs:'1 metro', proc:null },
+    ]},
+    { mat:'Ángulo 2"', items:[
+      { qty:1, unit:20, med:null, pieza:'Donde se emperna la regla', obs:'', proc:null },
+    ]},
+    { mat:'Pieza de medición', items:[
+      { qty:1, unit:20, med:null, pieza:'Para ver la medida', obs:'', proc:null },
+    ]},
+  ]},
+  { id:'templador', label:'Templador', icon:'ti-adjustments', pieces:[
+    { mat:'Platina 1/4×2', items:[
+      { qty:1, unit:20, med:'9', pieza:'Para soldar la tuerca', obs:'', proc:null },
+    ]},
+    { mat:'Fierro liso 1"', items:[
+      { qty:1, unit:20, med:null, pieza:'Parte con rosca', obs:'Verificar', proc:'torno' },
+    ]},
+    { mat:'Fierro liso 1½"', items:[
+      { qty:1, unit:20, med:null, pieza:'Para la tuerca', obs:'Verificar', proc:'torno' },
+    ]},
+    { mat:'Fierro liso 5/8"', items:[
+      { qty:1, unit:20, med:null, pieza:'Eje de templador', obs:'Verificar', proc:null },
+    ]},
+    { mat:'Fierro liso 1½" (bocinas)', items:[
+      { qty:3, unit:20, med:null, pieza:'Bocinas de templador', obs:'Verificar', proc:null },
+    ]},
+    { mat:'Fierro liso 1/2"', items:[
+      { qty:2, unit:20, med:null, pieza:'Agarrador (cachos)', obs:'Cortar con inclinación', proc:'tronzadora' },
+    ]},
+  ]},
+  { id:'brazo', label:'Brazo templador', icon:'ti-line', pieces:[
+    { mat:'Tubo cuadrado 2×2×6 mm', items:[
+      { qty:1, unit:20, med:'15', pieza:'Donde entra eje cuadrado', obs:'Marcar y dejar en taladro', proc:'taladro' },
+      { qty:1, unit:20, med:null, pieza:'Donde se suelda la bocina', obs:'Verificar — marcar y dejar en taladro', proc:'taladro' },
+    ]},
+    { mat:'Platina 1/2×2', items:[
+      { qty:1, unit:20, med:null, pieza:'Pinza del brazo', obs:'Verificar', proc:null },
+    ]},
+    { mat:'Fierro liso 1"', items:[
+      { qty:1, unit:20, med:null, pieza:'Pinza del brazo', obs:'', proc:'torno' },
+      { qty:1, unit:20, med:null, pieza:'Bocina de perno 5/8"', obs:'', proc:'torno' },
+    ]},
+  ]},
+  { id:'ejepolea', label:'Eje de polea 3 canales', icon:'ti-circle', pieces:[
+    { mat:'Tubo cuadrado 2×2×6 mm', items:[
+      { qty:1, unit:20, med:'15', pieza:'Para eje de polea 3 canales', obs:'', proc:'torno' },
+    ]},
+  ]},
+  { id:'guia', label:'Guía', icon:'ti-route', pieces:[
+    { mat:'Fierro cuadrado 1/2', items:[
+      { qty:4, unit:20, med:null, pieza:'Pista de la guía', obs:'Cortar en tronzadora en grupos de 3 o 4', proc:'tronzadora' },
+      { qty:2, unit:20, med:null, pieza:'Chaveta de la guía', obs:'Soldar en abrazadera — enumerar cada chaveta', proc:'taladro' },
+    ]},
+    { mat:'Tubo rectangular 1×2×3 mm', items:[
+      { qty:1, unit:20, med:null, pieza:'Para soldar tubo guía', obs:'', proc:null },
+    ]},
+    { mat:'Tubo redondo galv. 3/4"', items:[
+      { qty:1, unit:20, med:null, pieza:'Tubo guía', obs:'', proc:'tronzadora' },
+    ]},
+    { mat:'Tubo redondo cédula 40 — 1"', items:[
+      { qty:1, unit:20, med:null, pieza:'Bocina de tubo guía', obs:'', proc:'tronzadora' },
+    ]},
+  ]},
+  { id:'ruedas', label:'Ruedas', icon:'ti-circle-dotted', pieces:[
+    { mat:'Fierro liso 1"', items:[
+      { qty:4, unit:20, med:null, pieza:'Eje para ruedas', obs:'', proc:'torno' },
+    ]},
+  ]},
+  { id:'tapas', label:'Tapas de ruedas', icon:'ti-square-rotated', pieces:[
+    { mat:'Platina 4"', items:[
+      { qty:8, unit:20, med:'4"×4"', pieza:'Caras de la tapa', obs:'Verificar que alcance la rueda — cortar en tronzadora', proc:'tronzadora' },
+    ]},
+    { mat:'Tubo 4"', items:[
+      { qty:4, unit:20, med:null, pieza:'U', obs:'Verificar que alcance la rueda — cortar con amoladora', proc:'amoladora' },
+    ]},
+  ]},
+  { id:'prensas', label:'Prensas', icon:'ti-adjustments-horizontal', pieces:[
+    { mat:'Fierro liso 1"', items:[
+      { qty:1, unit:20, med:null, pieza:'Piezas de prensa', obs:'Medidas por verificar en campo', proc:'torno' },
+    ]},
+  ]},
+];
+
+let activeSection = 'poleas';
+
+function getM(){ return parseInt(document.getElementById('mc').value)||20; }
+
+function procBadge(p){
+  if(!p) return '';
+  const map = {torno:'badge-torno TORNO',tronzadora:'badge-tronz TRONZADORA',taladro:'badge-taladro TALADRO',escuadra:'badge-escuadra ESCUADRA',amoladora:'badge-amoladora AMOLADORA'};
+  const v = map[p]||'badge-escuadra '+p.toUpperCase();
+  const [cls,...rest]=v.split(' ');
+  return `<span class="badge ${cls}">${rest.join(' ')}</span>`;
+}
+
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML = SECTIONS.map(s=>`
+    <button class="nav-btn${s.id===activeSection?' active':''}" onclick="setSection('${s.id}')">
+      <i class="ti ${s.icon}" aria-hidden="true" style="font-size:14px;min-width:14px;"></i>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.label}</span>
+    </button>`).join('');
+}
+
+function renderContent(){
+  const m = getM();
+  const sec = SECTIONS.find(s=>s.id===activeSection);
+  if(!sec){ document.getElementById('content').innerHTML=''; return; }
+
+  let totalPieces = 0;
+  let missing = 0;
+  sec.pieces.forEach(g=>g.items.forEach(it=>{ totalPieces++; if(!it.med) missing++; }));
+
+  let html = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:8px;">
+      <div>
+        <p class="section-title">${sec.label}</p>
+        <p class="section-meta">${totalPieces} tipos de piezas${missing?' &nbsp;·&nbsp; <span style="color:var(--color-text-warning);">'+missing+' medidas pendientes</span>':''}</p>
+      </div>
+      <button onclick="sendPrompt('Dame una lista detallada de todos los materiales para la sección &quot;${sec.label}&quot; del aserradero portátil, incluyendo totales para ${m} máquinas ↗')"><i class="ti ti-list-details" aria-hidden="true"></i> Ver totales ↗</button>
+    </div>
+    <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); overflow:hidden;">`;
+
+  sec.pieces.forEach((group, gi)=>{
+    html += `<div class="mat-header"><i class="ti ti-layers-subtract" aria-hidden="true" style="font-size:13px;"></i><span style="font-family:var(--font-mono); font-size:12px; letter-spacing:0.03em;">${group.mat}</span></div>`;
+    html += `<div style="display:grid; grid-template-columns:44px 80px 90px 1fr 130px; border-bottom:0.5px solid var(--color-border-tertiary);">
+      <div class="col-head">#</div>
+      <div class="col-head">CANTIDAD</div>
+      <div class="col-head">MEDIDA</div>
+      <div class="col-head">PIEZA</div>
+      <div class="col-head">PROCESO / OBS.</div>
+    </div>`;
+    group.items.forEach((it,i)=>{
+      const qty = it.qty * it.unit * m / 20;
+      const medHtml = it.med
+        ? `<span style="font-family:var(--font-mono); font-size:13px;">${it.med} cm</span>`
+        : `<span class="measure-missing"><i class="ti ti-pencil" aria-hidden="true" style="font-size:11px;"></i> Verificar</span>`;
+      const obsHtml = it.obs ? `<span class="obs-tag" title="${it.obs}">${it.obs.substring(0,32)}${it.obs.length>32?'…':''}</span>` : '';
+      const statusDot = it.med ? `<span class="status-dot dot-verif"></span>` : `<span class="status-dot dot-miss"></span>`;
+      html += `<div class="piece-row">
+        <div class="pc muted" style="justify-content:center;">${statusDot}</div>
+        <div class="pc" style="font-weight:500;">${qty}</div>
+        <div class="pc">${medHtml}</div>
+        <div class="pc" style="gap:6px; flex-wrap:wrap;">${it.pieza}</div>
+        <div class="pc" style="flex-direction:column; align-items:flex-start; gap:4px; padding-top:7px; padding-bottom:7px;">${procBadge(it.proc)}${obsHtml}</div>
+      </div>`;
+    });
+  });
+
+  html += `</div>
+  <div style="display:flex; gap:12px; margin-top:12px; font-size:12px; color:var(--color-text-secondary); align-items:center; flex-wrap:wrap;">
+    <span><span class="status-dot dot-verif" style="vertical-align:middle;"></span> Medida confirmada</span>
+    <span><span class="status-dot dot-miss" style="vertical-align:middle;"></span> Medida pendiente de verificación</span>
+  </div>`;
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function setSection(id){
+  activeSection = id;
+  renderNav();
+  renderContent();
+}
+
+function refreshAll(){
+  renderContent();
+}
+
+renderNav();
+renderContent();
+</script>
