@@ -26,6 +26,13 @@ require_once __DIR__ . '/../../includes/header.php';
 <div class="tab-content active" data-group="inv" id="tabProductos">
     <div class="toolbar">
         <div class="toolbar-left">
+            <div class="search-box" style="border-color:var(--primary);background:#fff7ed" title="Lector de código de barras — escanea y presiona Enter">
+                <span class="icon" style="color:var(--primary)"><i class="fa fa-barcode"></i></span>
+                <input type="text" class="form-control" id="scanBarra"
+                       placeholder="Escanear código de barras..."
+                       style="background:transparent"
+                       onkeydown="if(event.key==='Enter'){event.preventDefault();buscarPorCodigo(this.value)}">
+            </div>
             <div class="search-box">
                 <span class="icon"><i class="fa fa-search"></i></span>
                 <input type="text" class="form-control" id="prodSearch" placeholder="Buscar codigo o nombre...">
@@ -478,7 +485,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('repCategoria').addEventListener('change', cargarRepuestos);
     document.getElementById('repCritico').addEventListener('change', cargarRepuestos);
+
+    // Foco automático en el campo de escaneo al cargar
+    document.getElementById('scanBarra').focus();
 });
+
+// ══════════════════════════════════════════════════
+// LECTOR DE CÓDIGO DE BARRAS
+// ══════════════════════════════════════════════════
+async function buscarPorCodigo(codigo) {
+    codigo = codigo.trim();
+    const input = document.getElementById('scanBarra');
+    if (!codigo) return;
+    try {
+        const d = await apiGet(`${API_INV}?action=productos_listar&q=${encodeURIComponent(codigo)}`);
+        const lista = d.productos || [];
+        const exacto = lista.find(p => (p.codigo || '').toLowerCase() === codigo.toLowerCase());
+
+        if (exacto) {
+            Toast.success(`${exacto.nombre} · Stock: ${parseFloat(exacto.stock_actual||0).toFixed(2)} ${exacto.unidad||''}`);
+            verKardexProducto(exacto.id);
+        } else if (lista.length > 0) {
+            document.getElementById('prodSearch').value = codigo;
+            cargarProductos();
+            Toast.info(`${lista.length} resultado${lista.length>1?'s':''} para "${codigo}"`);
+            document.querySelector('.tab[data-target="tabProductos"]')?.click();
+        } else {
+            Toast.error(`Código "${codigo}" no encontrado`);
+            input.select();
+            return;
+        }
+    } catch(e) {
+        Toast.error('Error al buscar código');
+    }
+    input.value = '';
+    input.focus();
+}
 
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
