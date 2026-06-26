@@ -106,6 +106,72 @@ try { switch ($action) {
                       'proyectos' => $proyectos, 'retrasados' => $retrasados]);
 
     // ================================================================
+    // RENTABILIDAD POR PROYECTO
+    // ================================================================
+    case 'rentabilidad':
+        $desde  = $input['desde']  ?? date('Y-01-01');
+        $hasta  = $input['hasta']  ?? date('Y-m-d');
+        $estado = $input['estado'] ?? 'todos';
+
+        $conditions = ["p.activo = TRUE", "p.created_at BETWEEN :desde AND :hasta"];
+        $params = [':desde' => $desde . ' 00:00:00', ':hasta' => $hasta . ' 23:59:59'];
+        if ($estado !== 'todos') {
+            $conditions[] = "p.estado = :estado";
+            $params[':estado'] = $estado;
+        }
+        $where = implode(' AND ', $conditions);
+
+        $stmt = $db->prepare("
+            SELECT p.id, p.codigo, p.nombre, p.estado,
+                   p.costo_estimado,
+                   p.costo_real,
+                   COALESCE(c.razon_social, '—') AS cliente,
+                   COALESCE(ov.ingreso, 0)       AS ingreso,
+                   COALESCE(ov.ingreso, 0) - p.costo_real AS margen,
+                   CASE WHEN COALESCE(ov.ingreso, 0) > 0
+                        THEN ROUND(((COALESCE(ov.ingreso, 0) - p.costo_real) / COALESCE(ov.ingreso, 0)) * 100, 1)
+                        ELSE NULL END AS margen_pct,
+                   p.porcentaje_avance,
+                   p.fecha_entrega_estimada
+            FROM proyectos p
+            LEFT JOIN clientes c ON c.id = p.cliente_id
+            LEFT JOIN (
+                SELECT proyecto_id, SUM(total) AS ingreso
+                FROM ordenes_venta
+                WHERE estado NOT IN ('borrador','cancelada')
+                GROUP BY proyecto_id
+            ) ov ON ov.proyecto_id = p.id
+            WHERE $where
+            ORDER BY margen DESC NULLS LAST, p.created_at DESC");
+        $stmt->execute($params);
+        $proyectos = $stmt->fetchAll();
+
+        // Totales
+        $totales = [
+            'ingreso_total'       => 0,
+            'costo_total'         => 0,
+            'margen_total'        => 0,
+            'con_venta'           => 0,
+            'sin_venta'           => 0,
+            'rentables'           => 0,
+            'en_perdida'          => 0,
+        ];
+        foreach ($proyectos as $p) {
+            $totales['ingreso_total'] += (float)$p['ingreso'];
+            $totales['costo_total']   += (float)$p['costo_real'];
+            $totales['margen_total']  += (float)$p['margen'];
+            if ((float)$p['ingreso'] > 0) $totales['con_venta']++;
+            else $totales['sin_venta']++;
+            if ((float)$p['margen'] > 0) $totales['rentables']++;
+            elseif ((float)$p['costo_real'] > 0) $totales['en_perdida']++;
+        }
+        $totales['margen_pct_total'] = $totales['ingreso_total'] > 0
+            ? round(($totales['margen_total'] / $totales['ingreso_total']) * 100, 1)
+            : null;
+
+        jsonResponse(['ok' => true, 'proyectos' => $proyectos, 'totales' => $totales]);
+
+    // ================================================================
     // REPORTE DE VENTAS
     // ================================================================
     case 'ventas':

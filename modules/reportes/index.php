@@ -11,6 +11,7 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="tab" data-group="rep" data-target="tab-compras"><i class="fa fa-cart-shopping"></i> Compras</div>
     <div class="tab" data-group="rep" data-target="tab-inventario"><i class="fa fa-boxes-stacked"></i> Inventario</div>
     <div class="tab" data-group="rep" data-target="tab-alertas"><i class="fa fa-bell"></i> Alertas</div>
+    <div class="tab" data-group="rep" data-target="tab-rentabilidad"><i class="fa fa-chart-line"></i> Rentabilidad</div>
 </div>
 
 <!-- ============================================================
@@ -263,6 +264,47 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
+<!-- ============================================================
+     RENTABILIDAD POR PROYECTO
+     ============================================================ -->
+<div class="tab-content" data-group="rep" id="tab-rentabilidad">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <input type="date" class="form-control" id="rentDesde" style="width:140px">
+            <input type="date" class="form-control" id="rentHasta" style="width:140px">
+            <select class="form-control" id="rentEstado" style="width:150px">
+                <option value="todos">Todos los estados</option>
+                <option value="fabricacion">Fabricación</option>
+                <option value="pruebas">Pruebas</option>
+                <option value="entrega">Entrega</option>
+                <option value="completado">Completado</option>
+            </select>
+            <button class="btn btn-secondary" onclick="cargarRentabilidad()">
+                <i class="fa fa-filter"></i> Filtrar
+            </button>
+        </div>
+    </div>
+    <div id="rentKpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px"></div>
+    <div class="card" style="overflow:hidden">
+        <table class="table" style="margin:0">
+            <thead>
+                <tr>
+                    <th>Proyecto</th>
+                    <th>Cliente</th>
+                    <th>Estado</th>
+                    <th class="text-right">Ingreso</th>
+                    <th class="text-right">Costo real</th>
+                    <th class="text-right">Margen</th>
+                    <th>Margen %</th>
+                </tr>
+            </thead>
+            <tbody id="tbRentabilidad">
+                <tr><td colspan="7" class="text-center text-muted">Selecciona un rango y filtra</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
 <?php require_once __DIR__ . '/../../includes/footer.php'; ?>
 
 <script>
@@ -271,12 +313,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const hoy    = new Date().toISOString().split('T')[0];
     const priMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
     const priAno = new Date().getFullYear() + '-01-01';
-    document.getElementById('prodDesde').value   = priMes;
-    document.getElementById('prodHasta').value   = hoy;
-    document.getElementById('ventasDesde').value = priAno;
-    document.getElementById('ventasHasta').value = hoy;
-    document.getElementById('comprasDesde').value= priAno;
-    document.getElementById('comprasHasta').value= hoy;
+    document.getElementById('prodDesde').value    = priMes;
+    document.getElementById('prodHasta').value    = hoy;
+    document.getElementById('ventasDesde').value  = priAno;
+    document.getElementById('ventasHasta').value  = hoy;
+    document.getElementById('comprasDesde').value = priAno;
+    document.getElementById('comprasHasta').value = hoy;
+    document.getElementById('rentDesde').value    = priAno;
+    document.getElementById('rentHasta').value    = hoy;
 
     cargarKPIs();
     document.getElementById('alertaFiltro').addEventListener('change', cargarAlertas);
@@ -284,10 +328,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cargar datos cuando se activa cada tab
     document.querySelectorAll('.tab[data-group="rep"]').forEach(tab => tab.addEventListener('click', () => {
         const target = tab.dataset.target.replace('tab-', '');
-        if (target === 'alertas')   cargarAlertas();
-        if (target === 'inventario')cargarInventario();
-        if (target === 'produccion')cargarProduccion();
-        if (target === 'ventas')    cargarVentas();
+        if (target === 'alertas')       cargarAlertas();
+        if (target === 'inventario')    cargarInventario();
+        if (target === 'produccion')    cargarProduccion();
+        if (target === 'ventas')        cargarVentas();
+        if (target === 'rentabilidad')  cargarRentabilidad();
         if (target === 'compras')   cargarCompras();
     }));
 });
@@ -543,4 +588,90 @@ async function generarAlertas() {
     if (r.ok) { Toast.success(`${r.generadas} alertas generadas`); cargarAlertas(); cargarKPIs(); }
     else Toast.error(r.error || 'Error');
 }
+
+// ── RENTABILIDAD ──────────────────────────────────────────────────────────
+async function cargarRentabilidad() {
+    const desde  = document.getElementById('rentDesde').value;
+    const hasta  = document.getElementById('rentHasta').value;
+    const estado = document.getElementById('rentEstado').value;
+    const tb     = document.getElementById('tbRentabilidad');
+    tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Cargando…</td></tr>';
+
+    try {
+        const r  = await apiGet(`<?= APP_BASE ?>modules/reportes/api.php?action=rentabilidad&desde=${desde}&hasta=${hasta}&estado=${estado}`);
+        const ps = r.proyectos || [];
+        const t  = r.totales;
+
+        // KPI cards
+        const kpiEl = document.getElementById('rentKpis');
+        const margenColor = t.margen_total >= 0 ? '#166534' : '#b91c1c';
+        kpiEl.innerHTML = [
+            ['fa-arrow-trend-up', 'Ingresos Totales',    t.ingreso_total,  '#1d4ed8', false],
+            ['fa-wrench',         'Costos Totales',       t.costo_total,    '#92400e', false],
+            ['fa-sack-dollar',    'Margen Total',         t.margen_total,   margenColor, false],
+            ['fa-percent',        'Margen Promedio',      t.margen_pct_total !== null ? t.margen_pct_total + '%' : '—', margenColor, true],
+            ['fa-circle-check',   'Proyectos rentables',  t.rentables,      '#166534', true],
+            ['fa-circle-xmark',   'En pérdida',           t.en_perdida,     '#b91c1c', true],
+        ].map(([ico, lbl, val, color, isRaw]) => `
+            <div class="card" style="padding:14px 16px">
+                <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:4px">
+                    <i class="fa ${ico}" style="color:${color};margin-right:4px"></i>${lbl}
+                </div>
+                <div style="font-size:1.1rem;font-weight:700;color:${color}">
+                    ${isRaw ? val : formatMoney(val)}
+                </div>
+            </div>`).join('');
+
+        if (!ps.length) {
+            tb.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Sin proyectos en el período</td></tr>';
+            return;
+        }
+
+        const badgeProy = (estado) => {
+            const m = { fabricacion:['#dbeafe','#1e40af','Fabricación'], pruebas:['#fef9c3','#854d0e','Pruebas'],
+                        entrega:['#dcfce7','#166534','Entrega'], completado:['#e0e7ff','#3730a3','Completado'],
+                        cancelado:['#f1f5f9','#64748b','Cancelado'] };
+            const [bg, c, txt] = m[estado] || ['#f1f5f9','#64748b', estado];
+            return `<span style="background:${bg};color:${c};padding:2px 8px;border-radius:8px;font-size:.72rem;font-weight:600">${txt}</span>`;
+        };
+
+        tb.innerHTML = ps.map(p => {
+            const ingreso  = parseFloat(p.ingreso);
+            const costo    = parseFloat(p.costo_real);
+            const margen   = parseFloat(p.margen);
+            const pct      = p.margen_pct;
+            const sinVenta = ingreso === 0;
+
+            const margenColor = sinVenta ? '#94a3b8' : (margen >= 0 ? '#166534' : '#b91c1c');
+            const pctHtml     = pct !== null
+                ? `<div style="display:flex;align-items:center;gap:6px">
+                    <div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px">
+                        <div style="height:6px;border-radius:3px;background:${margenColor};width:${Math.min(Math.abs(pct),100)}%"></div>
+                    </div>
+                    <span style="font-size:.8rem;font-weight:700;color:${margenColor};white-space:nowrap">${pct}%</span>
+                   </div>`
+                : `<span style="font-size:.78rem;color:#94a3b8">Sin venta</span>`;
+
+            return `<tr>
+                <td style="font-size:.83rem">
+                    <div style="font-weight:600">${escHtml(p.codigo)}</div>
+                    <div style="color:var(--text-muted);font-size:.78rem">${escHtml(p.nombre)}</div>
+                </td>
+                <td style="font-size:.82rem">${escHtml(p.cliente)}</td>
+                <td>${badgeProy(p.estado)}</td>
+                <td class="text-right" style="font-size:.83rem${sinVenta ? ';color:#94a3b8' : ''}">${sinVenta ? '—' : formatMoney(ingreso)}</td>
+                <td class="text-right" style="font-size:.83rem">${formatMoney(costo)}</td>
+                <td class="text-right" style="font-size:.83rem;font-weight:600;color:${margenColor}">
+                    ${sinVenta ? '—' : formatMoney(margen)}
+                </td>
+                <td style="min-width:120px">${pctHtml}</td>
+            </tr>`;
+        }).join('');
+
+    } catch(e) {
+        tb.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${e.message}</td></tr>`;
+    }
+}
+
+function escHtml(s) { if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
