@@ -39,9 +39,9 @@ require_once __DIR__ . '/../../includes/header.php';
         </div>
     </div>
 
-    <!-- Formulario ancho completo, flujo normal, sin posicionamiento especial -->
+    <!-- Formulario ancho completo, en flujo normal, encima del grid -->
     <div id="fdFormSection" style="display:none;margin-bottom:14px">
-        <div style="border:1px solid var(--border);border-radius:var(--radius);background:#fff;overflow:hidden">
+        <div class="card" style="box-shadow:none">
             <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
                 <span id="fdFormTitulo" style="font-weight:700;font-size:1rem">Nueva Factura</span>
                 <button onclick="cerrarFormFactura()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:2px 6px" title="Cancelar">
@@ -321,8 +321,6 @@ let _clientes = [];
 
 function cerrarFormFactura() {
     document.getElementById('fdFormSection').style.display = 'none';
-    document.getElementById('fToolbar').style.display      = '';
-    document.getElementById('fGrid').style.display         = 'grid';
 }
 
 async function abrirModalFactura(data = null) {
@@ -347,9 +345,8 @@ async function abrirModalFactura(data = null) {
 
     await cargarCotizaciones(data?.cotizacion_id);
 
-    document.getElementById('fGrid').style.display         = 'none';
-    document.getElementById('fToolbar').style.display      = 'none';
     document.getElementById('fdFormSection').style.display = 'block';
+    document.getElementById('fdFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function editarFactura(id) {
