@@ -106,7 +106,6 @@ require_once __DIR__ . '/../../includes/header.php';
                 <div class="cp-det-grid">
                     <div>Emisión:<br><span id="cpEmision"></span></div>
                     <div>Vencimiento:<br><span id="cpVence"></span></div>
-                    <div id="cpDocWrap">Doc. proveedor:<br><span id="cpDoc"></span></div>
                     <div id="cpOcWrap" style="display:none">Orden Compra:<br><span id="cpOc"></span></div>
                 </div>
                 <div id="cpConceptoWrap" style="padding:0 20px 12px;font-size:.82rem;color:var(--text-muted);display:none">
@@ -144,17 +143,12 @@ require_once __DIR__ . '/../../includes/header.php';
             <input type="hidden" id="cuentaEditId">
             <div class="form-group">
                 <label class="form-label">Proveedor *</label>
-                <select class="form-control" id="cuentaProveedor" onchange="onProveedorChange()">
-                    <option value="">— Seleccionar proveedor —</option>
-                </select>
+                <input type="text" class="form-control" id="cuentaProveedor" placeholder="Nombre del proveedor">
             </div>
             <div class="form-group">
-                <label class="form-label">N° de comprobante del proveedor</label>
-                <input type="text" class="form-control" id="cuentaNumDoc" placeholder="Ej: F001-00123">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Concepto</label>
-                <textarea class="form-control" id="cuentaConcepto" rows="2" placeholder="Descripción de la obligación"></textarea>
+                <label class="form-label">Concepto / descripción *</label>
+                <textarea class="form-control" id="cuentaConcepto" rows="2"
+                    placeholder="Ej: F001-00123 – Compra de materiales"></textarea>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                 <div class="form-group">
@@ -234,17 +228,12 @@ require_once __DIR__ . '/../../includes/header.php';
 <script>
 const BASE = '<?= APP_BASE ?>modules/cuentas_pagar/api.php';
 let _cpId = null;
-let _proveedores = [];
 
 // ── Inicialización ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     initTabs();
-    await cargarProveedores();
     cargarCuentas();
-
     document.querySelector('[data-target="tabResumen"]').addEventListener('click', cargarResumen);
-
-    // fecha por defecto modal nueva
     const hoy = new Date().toISOString().slice(0, 10);
     document.getElementById('cuentaFechaEmision').value = hoy;
     document.getElementById('pagoFecha').value = hoy;
@@ -289,9 +278,10 @@ async function cargarCuentas() {
             const rowBg   = vencida && c.estado !== 'pagada' ? 'background:#fff7ed' : '';
             const sel     = _cpId === c.id ? 'background:var(--primary-light,#eff6ff)' : rowBg;
             return `<tr id="cpfila-${c.id}" style="cursor:pointer;${sel}" onclick="verCuenta(${c.id})">
-                <td style="font-size:.82rem;font-weight:600">${esc(c.numero)}</td>
-                <td style="font-size:.82rem">${esc(c.proveedor_nombre||'—')}</td>
-                <td style="font-size:.8rem;color:var(--text-muted)">${esc(c.numero_doc||'—')}</td>
+                <td style="font-size:.82rem;font-weight:600">${esc(c.codigo)}</td>
+                <td style="font-size:.82rem">${esc(c.proveedor||'—')}</td>
+                <td style="font-size:.8rem;color:var(--text-muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+                    title="${esc(c.concepto||'')}">${esc(c.concepto||'—')}</td>
                 <td style="font-size:.82rem${vencida && c.estado !== 'pagada' ? ';color:#d97706;font-weight:600' : ''}">${formatDate(c.fecha_vencimiento)}</td>
                 <td class="text-right" style="font-size:.82rem">${formatMoney(c.total)}</td>
                 <td class="text-right" style="font-size:.82rem;font-weight:600">${formatMoney(c.pendiente)}</td>
@@ -321,8 +311,8 @@ async function verCuenta(id) {
         const vencida = c.vencida === true || c.vencida === 't';
         const activa  = c.estado !== 'pagada' && c.estado !== 'anulada';
 
-        document.getElementById('cpNumero').textContent    = c.numero;
-        document.getElementById('cpProveedor').textContent = c.proveedor_nombre || '—';
+        document.getElementById('cpNumero').textContent    = c.codigo;
+        document.getElementById('cpProveedor').textContent = c.proveedor || '—';
         document.getElementById('cpBadge').innerHTML       = badgeCP(c.estado, vencida)
             + (vencida && activa ? `<span style="font-size:.75rem;color:#d97706;margin-left:8px">
                ${c.dias_vencida} día${c.dias_vencida==1?'':'s'} vencida</span>` : '');
@@ -331,10 +321,6 @@ async function verCuenta(id) {
         document.getElementById('cpTotal').textContent     = formatMoney(c.total);
         document.getElementById('cpPagado').textContent    = formatMoney(c.total_pagado);
         document.getElementById('cpPendiente').textContent = formatMoney(c.pendiente);
-
-        const docW = document.getElementById('cpDocWrap');
-        if (c.numero_doc) { docW.style.display=''; document.getElementById('cpDoc').textContent = c.numero_doc; }
-        else { docW.style.display='none'; }
 
         const ocW = document.getElementById('cpOcWrap');
         if (c.oc_numero) { ocW.style.display=''; document.getElementById('cpOc').textContent = c.oc_numero; }
@@ -375,24 +361,13 @@ async function verCuenta(id) {
 }
 
 // ── NUEVA / EDITAR CUENTA ─────────────────────────────────────────────────
-async function cargarProveedores() {
-    try {
-        const r = await apiGet(`${BASE}?action=proveedores_listar`);
-        _proveedores = r.proveedores || [];
-        const sel = document.getElementById('cuentaProveedor');
-        sel.innerHTML = '<option value="">— Seleccionar proveedor —</option>' +
-            _proveedores.map(p => `<option value="${p.id}" data-nombre="${esc(p.razon_social)}">${esc(p.razon_social)}${p.ruc ? ' · '+p.ruc : ''}</option>`).join('');
-    } catch(e) { /* silencioso */ }
-}
-
 function abrirModalNueva() {
     document.getElementById('cuentaEditId').value = '';
     document.getElementById('modalNuevaTitulo').innerHTML = '<i class="fa fa-file-invoice"></i> Nueva Cuenta por Pagar';
-    document.getElementById('cuentaProveedor').value = '';
-    document.getElementById('cuentaNumDoc').value   = '';
-    document.getElementById('cuentaConcepto').value = '';
-    document.getElementById('cuentaTotal').value    = '';
-    document.getElementById('cuentaFechaVence').value = '';
+    document.getElementById('cuentaProveedor').value    = '';
+    document.getElementById('cuentaConcepto').value     = '';
+    document.getElementById('cuentaTotal').value        = '';
+    document.getElementById('cuentaFechaVence').value   = '';
     document.getElementById('cuentaFechaEmision').value = new Date().toISOString().slice(0,10);
     Modal.open('modalNuevaCuenta');
 }
@@ -401,36 +376,31 @@ async function abrirEditarCuenta(id) {
     try {
         const r = await apiGet(`${BASE}?action=obtener&id=${id}`);
         const c = r.data;
-        document.getElementById('cuentaEditId').value = c.id;
+        document.getElementById('cuentaEditId').value      = c.id;
         document.getElementById('modalNuevaTitulo').innerHTML = '<i class="fa fa-edit"></i> Editar Cuenta';
-        document.getElementById('cuentaProveedor').value     = c.proveedor_id || '';
-        document.getElementById('cuentaNumDoc').value        = c.numero_doc   || '';
-        document.getElementById('cuentaConcepto').value      = c.concepto     || '';
-        document.getElementById('cuentaTotal').value         = c.total;
-        document.getElementById('cuentaFechaEmision').value  = c.fecha_emision;
-        document.getElementById('cuentaFechaVence').value    = c.fecha_vencimiento;
+        document.getElementById('cuentaProveedor').value   = c.proveedor   || '';
+        document.getElementById('cuentaConcepto').value    = c.concepto    || '';
+        document.getElementById('cuentaTotal').value       = c.total;
+        document.getElementById('cuentaFechaEmision').value = c.fecha_emision;
+        document.getElementById('cuentaFechaVence').value  = c.fecha_vencimiento;
         Modal.open('modalNuevaCuenta');
     } catch(e) { Toast.error(e.message); }
 }
 
 async function guardarCuenta() {
-    const id        = document.getElementById('cuentaEditId').value;
-    const provId    = document.getElementById('cuentaProveedor').value;
-    const provOpt   = document.getElementById('cuentaProveedor').selectedOptions[0];
-    const provNom   = provOpt?.dataset?.nombre || provOpt?.text || '';
-    const total     = parseFloat(document.getElementById('cuentaTotal').value);
-    const fechaVe   = document.getElementById('cuentaFechaVence').value;
+    const id      = document.getElementById('cuentaEditId').value;
+    const prov    = document.getElementById('cuentaProveedor').value.trim();
+    const total   = parseFloat(document.getElementById('cuentaTotal').value);
+    const fechaVe = document.getElementById('cuentaFechaVence').value;
 
-    if (!provId)   { Toast.warning('Selecciona un proveedor'); return; }
-    if (!fechaVe)  { Toast.warning('Ingresa la fecha de vencimiento'); return; }
+    if (!prov)   { Toast.warning('Ingresa el nombre del proveedor'); return; }
+    if (!fechaVe){ Toast.warning('Ingresa la fecha de vencimiento'); return; }
     if (!total || total <= 0) { Toast.warning('Ingresa un monto válido'); return; }
 
     const body = {
         action:            id ? 'editar' : 'crear',
         id:                id || undefined,
-        proveedor_id:      provId,
-        proveedor_nombre:  provNom,
-        numero_doc:        document.getElementById('cuentaNumDoc').value.trim(),
+        proveedor:         prov,
         concepto:          document.getElementById('cuentaConcepto').value.trim(),
         fecha_emision:     document.getElementById('cuentaFechaEmision').value,
         fecha_vencimiento: fechaVe,
@@ -440,7 +410,7 @@ async function guardarCuenta() {
     try {
         const r = await apiPost(BASE, body);
         if (r.ok) {
-            Toast.success(id ? 'Cuenta actualizada' : `Cuenta ${r.numero} creada`);
+            Toast.success(id ? 'Cuenta actualizada' : `Cuenta ${r.codigo} creada`);
             Modal.close('modalNuevaCuenta');
             _cpId = null;
             cargarCuentas();
