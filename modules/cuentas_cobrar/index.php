@@ -57,9 +57,9 @@ require_once __DIR__ . '/../../includes/header.php';
             </table>
         </div>
 
-        <!-- Panel de detalle -->
+        <!-- Panel de detalle / formulario -->
         <div id="facturaDetalle" style="position:sticky;top:16px">
-            <div style="background:#fff;border-radius:var(--radius);box-shadow:0 1px 6px rgba(0,0,0,.10);overflow:hidden">
+            <div id="fdPanel" style="background:#fff;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
                 <div id="fdEmpty" style="padding:48px 24px;text-align:center;color:var(--text-muted)">
                     <i class="fa fa-file-invoice-dollar" style="font-size:2rem;opacity:.25;margin-bottom:10px;display:block"></i>
                     Selecciona una factura para ver el detalle
@@ -98,6 +98,68 @@ require_once __DIR__ . '/../../includes/header.php';
                         <div id="fdCobros"></div>
                     </div>
                     <div id="fdAcciones" style="padding:12px 20px;display:flex;gap:8px;flex-wrap:wrap"></div>
+                </div>
+            </div>
+
+            <!-- Formulario inline (sin overlay, sin sombra) -->
+            <div id="fdForm" style="display:none;background:#fff;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;margin-top:0">
+                <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+                    <div id="fdFormTitulo" style="font-weight:700;font-size:1rem">Nueva Factura</div>
+                    <button onclick="cerrarFormFactura()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1rem;padding:2px 6px;border-radius:4px" title="Cerrar">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+                <div style="padding:16px 20px;display:flex;flex-direction:column;gap:10px;max-height:70vh;overflow-y:auto">
+                    <input type="hidden" id="fId">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Cliente *</label>
+                        <select id="fClienteId" class="form-control" onchange="cargarCotizaciones()"></select>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Cotización (opcional)</label>
+                        <select id="fCotizacionId" class="form-control">
+                            <option value="">— Ninguna —</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Concepto</label>
+                        <input type="text" id="fConcepto" class="form-control" placeholder="Descripción del servicio o producto">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Emisión *</label>
+                            <input type="date" id="fFechaEmision" class="form-control">
+                        </div>
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Vencimiento *</label>
+                            <input type="date" id="fFechaVencimiento" class="form-control">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Subtotal (S/) *</label>
+                        <input type="number" id="fSubtotal" class="form-control" step="0.01" min="0.01" oninput="calcularTotal()">
+                    </div>
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.88rem;color:var(--text);user-select:none">
+                        <input type="checkbox" id="fAplicaIgv" onchange="calcularTotal()"> Aplicar IGV (18%)
+                    </label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">IGV (S/)</label>
+                            <input type="text" id="fIgv" class="form-control" readonly style="background:var(--bg-secondary)">
+                        </div>
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Total (S/)</label>
+                            <input type="text" id="fTotal" class="form-control" readonly style="background:var(--bg-secondary);font-weight:700">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Observaciones</label>
+                        <textarea id="fObservaciones" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+                    <button class="btn btn-outline btn-sm" onclick="cerrarFormFactura()">Cancelar</button>
+                    <button class="btn btn-primary btn-sm" onclick="guardarFactura()"><i class="fa fa-save"></i> Guardar</button>
                 </div>
             </div>
         </div>
@@ -139,77 +201,6 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════
-     MODAL NUEVA / EDITAR FACTURA
-════════════════════════════════════════════════════════════════════════ -->
-<div id="modalFactura" class="modal">
-    <div class="modal-content" style="max-width:600px">
-        <div class="modal-header">
-            <h3 id="modalFacturaTitulo">Nueva Factura</h3>
-            <button class="modal-close" onclick="Modal.close('modalFactura')">&times;</button>
-        </div>
-        <div class="modal-body">
-            <input type="hidden" id="fId">
-            <div class="form-row">
-                <div class="form-group" style="flex:2">
-                    <label>Cliente *</label>
-                    <select id="fClienteId" class="form-control" onchange="cargarCotizaciones()" required></select>
-                </div>
-                <div class="form-group" style="flex:1">
-                    <label>Cotización (opcional)</label>
-                    <select id="fCotizacionId" class="form-control">
-                        <option value="">— Ninguna —</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Concepto</label>
-                <input type="text" id="fConcepto" class="form-control" placeholder="Descripción del servicio o producto">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Fecha Emisión *</label>
-                    <input type="date" id="fFechaEmision" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Fecha Vencimiento *</label>
-                    <input type="date" id="fFechaVencimiento" class="form-control" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Subtotal (S/) *</label>
-                    <input type="number" id="fSubtotal" class="form-control" step="0.01" min="0.01" oninput="calcularTotal()" required>
-                </div>
-                <div class="form-group" style="flex:0;min-width:160px;display:flex;align-items:flex-end;gap:8px;padding-bottom:4px">
-                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">
-                        <input type="checkbox" id="fAplicaIgv" onchange="calcularTotal()"> Aplicar IGV (18%)
-                    </label>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>IGV (S/)</label>
-                    <input type="text" id="fIgv" class="form-control" readonly style="background:var(--bg-secondary)">
-                </div>
-                <div class="form-group">
-                    <label>Total (S/)</label>
-                    <input type="text" id="fTotal" class="form-control" readonly style="background:var(--bg-secondary);font-weight:700">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Observaciones</label>
-                <textarea id="fObservaciones" class="form-control" rows="2"></textarea>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="Modal.close('modalFactura')">Cancelar</button>
-            <button class="btn btn-primary" onclick="guardarFactura()">
-                <i class="fa fa-save"></i> Guardar
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- ════════════════════════════════════════════════════════════════════════
      MODAL REGISTRAR COBRO
@@ -324,17 +315,23 @@ async function cargarFacturas() {
     }
 }
 
-// ── modal nueva factura ───────────────────────────────────────────────────────
+// ── formulario inline nueva / editar factura ─────────────────────────────────
 let _clientes = [];
+
+function cerrarFormFactura() {
+    document.getElementById('fdForm').style.display = 'none';
+    document.getElementById('fdPanel').style.display = 'block';
+}
+
 async function abrirModalFactura(data = null) {
-    document.getElementById('modalFacturaTitulo').textContent = data ? 'Editar Factura' : 'Nueva Factura';
-    document.getElementById('fId').value              = data?.id || '';
-    document.getElementById('fConcepto').value        = data?.concepto || '';
-    document.getElementById('fFechaEmision').value    = data?.fecha_emision || new Date().toISOString().slice(0,10);
+    document.getElementById('fdFormTitulo').textContent = data ? 'Editar Factura' : 'Nueva Factura';
+    document.getElementById('fId').value               = data?.id || '';
+    document.getElementById('fConcepto').value         = data?.concepto || '';
+    document.getElementById('fFechaEmision').value     = data?.fecha_emision || new Date().toISOString().slice(0,10);
     document.getElementById('fFechaVencimiento').value = data?.fecha_vencimiento || '';
-    document.getElementById('fSubtotal').value        = data?.subtotal || '';
-    document.getElementById('fAplicaIgv').checked     = data ? parseFloat(data.igv) > 0 : false;
-    document.getElementById('fObservaciones').value   = data?.observaciones || '';
+    document.getElementById('fSubtotal').value         = data?.subtotal || '';
+    document.getElementById('fAplicaIgv').checked      = data ? parseFloat(data.igv) > 0 : false;
+    document.getElementById('fObservaciones').value    = data?.observaciones || '';
     calcularTotal();
 
     if (!_clientes.length) {
@@ -347,7 +344,10 @@ async function abrirModalFactura(data = null) {
     if (data?.cliente_id) sel.value = data.cliente_id;
 
     await cargarCotizaciones(data?.cotizacion_id);
-    Modal.open('modalFactura');
+
+    // Mostrar panel de formulario, ocultar panel de detalle
+    document.getElementById('fdPanel').style.display = 'none';
+    document.getElementById('fdForm').style.display  = 'block';
 }
 
 async function editarFactura(id) {
@@ -398,7 +398,8 @@ async function guardarFactura() {
     try {
         await apiPost(BASE, payload);
         Toast.success(id ? 'Factura actualizada' : 'Factura creada');
-        Modal.close('modalFactura');
+        cerrarFormFactura();
+        _facturaDetalleId = null;
         cargarFacturas();
     } catch(e) { Toast.error(e.message); }
 }
