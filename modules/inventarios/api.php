@@ -6,6 +6,43 @@ require_once __DIR__ . '/../../config/database.php';
 startAppSession();
 header('Content-Type: application/json; charset=utf-8');
 
+// Codigo interno abreviado a partir del nombre (ej. "Carro" -> "CRRO"):
+// conserva primera y ultima letra, descarta vocales intermedias.
+function generarCodigoAbreviado(PDO $db, string $nombre): string {
+    $nombre = trim($nombre);
+    if ($nombre === '') return generarCodigo('MAT', 'productos', 'codigo');
+
+    $limpio = strtoupper($nombre);
+    $translit = iconv('UTF-8', 'ASCII//TRANSLIT', $limpio);
+    if ($translit !== false) $limpio = $translit;
+    $limpio = preg_replace('/[^A-Z0-9]/', '', $limpio);
+    if ($limpio === '') return generarCodigo('MAT', 'productos', 'codigo');
+
+    $vocales = ['A', 'E', 'I', 'O', 'U'];
+    $len = strlen($limpio);
+    $abrev = '';
+    for ($i = 0; $i < $len; $i++) {
+        $ch = $limpio[$i];
+        $esVocal = in_array($ch, $vocales, true);
+        if (!$esVocal || $i === 0 || $i === $len - 1) {
+            $abrev .= $ch;
+        }
+    }
+    $abrev = substr($abrev, 0, 6);
+    if (strlen($abrev) < 3) $abrev = substr($limpio, 0, 6);
+
+    $codigo = $abrev;
+    $stmt = $db->prepare("SELECT 1 FROM productos WHERE codigo = :cod");
+    $i = 2;
+    while (true) {
+        $stmt->execute([':cod' => $codigo]);
+        if (!$stmt->fetch()) break;
+        $codigo = $abrev . $i;
+        $i++;
+    }
+    return $codigo;
+}
+
 $action = $_GET['action'] ?? '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // FormData (multipart) populates $_POST; JSON body leaves it empty
@@ -13,6 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $input['action'] ?? $action;
 } else {
     $input = $_GET;
+}
+
+$nivelAlmacen = nivelPermiso('inventarios');
+if ($nivelAlmacen === 'ninguno') {
+    jsonResponse(['error' => 'No tienes permisos para acceder al módulo de Almacén.'], 403);
+}
+$accionesEscrituraAlmacen = ['producto_guardar', 'producto_toggle', 'ajuste_stock', 'categoria_guardar', 'categoria_eliminar', 'unidad_medida_guardar'];
+if ($nivelAlmacen === 'lectura' && in_array($action, $accionesEscrituraAlmacen)) {
+    jsonResponse(['error' => 'Tu rol tiene acceso de solo lectura a Almacén.'], 403);
 }
 
 $db = getDB();
@@ -62,7 +108,7 @@ try { switch ($action) {
         $where  = ['p.activo = TRUE'];
         $params = [];
         if (!empty($input['q'])) {
-            $where[] = "(p.codigo ILIKE :q OR p.nombre ILIKE :q OR p.descripcion ILIKE :q)";
+            $where[] = "(p.codigo ILIKE :q OR p.nombre ILIKE :q OR p.descripcion ILIKE :q OR p.codigo_barras ILIKE :q)";
             $params[':q'] = '%' . $input['q'] . '%';
         }
         if (!empty($input['categoria_id'])) {
@@ -155,7 +201,8 @@ try { switch ($action) {
                 afectacion_igv_codigo=:afectacion_igv_codigo,
                 porcentaje_igv=:porcentaje_igv,
                 incluye_igv=:incluye_igv,
-                product_type=:product_type
+                product_type=:product_type,
+                ubicacion=:ubicacion
                 {$imagen_sql},
                 updated_at=NOW()
                 WHERE id=:id")->execute(array_merge([
@@ -178,6 +225,7 @@ try { switch ($action) {
                 ':porcentaje_igv' => (float)($input['porcentaje_igv'] ?? 18),
                 ':incluye_igv' => (int)filter_var($input['incluye_igv'] ?? true, FILTER_VALIDATE_BOOLEAN),
                 ':product_type' => ($input['product_type'] ?? null) ?: 'product',
+                ':ubicacion' => ($input['ubicacion'] ?? null) ?: null,
             ], $imagen_params));
 
             $db->prepare("
@@ -213,10 +261,10 @@ try { switch ($action) {
                 (codigo, nombre, descripcion, categoria_id, unidad,
                  stock_minimo, stock_maximo, precio_venta, metodo_valuacion, es_repuesto, imagen,
                  codigo_interno, codigo_barras, codigo_sunat, unidad_codigo,
-                 afectacion_igv_codigo, porcentaje_igv, incluye_igv, product_type)
+                 afectacion_igv_codigo, porcentaje_igv, incluye_igv, product_type, ubicacion)
                 VALUES (:cod,:nom,:desc,:cat,:uni,:smin,:smax,:pv,:met,:rep,:img,
                         :codigo_interno,:codigo_barras,:codigo_sunat,:unidad_codigo,
-                        :afectacion_igv_codigo,:porcentaje_igv,:incluye_igv,:product_type) RETURNING id");
+                        :afectacion_igv_codigo,:porcentaje_igv,:incluye_igv,:product_type,:ubicacion) RETURNING id");
             $stmt->execute([
                 ':cod'  => trim($input['codigo']),
                 ':nom'  => trim($input['nombre']),
@@ -237,6 +285,7 @@ try { switch ($action) {
                 ':porcentaje_igv' => (float)($input['porcentaje_igv'] ?? 18),
                 ':incluye_igv' => (int)filter_var($input['incluye_igv'] ?? true, FILTER_VALIDATE_BOOLEAN),
                 ':product_type' => ($input['product_type'] ?? null) ?: 'product',
+                ':ubicacion' => ($input['ubicacion'] ?? null) ?: null,
             ]);
             $id = (int)$stmt->fetchColumn();
 
@@ -369,6 +418,31 @@ try { switch ($action) {
         jsonResponse(['ok' => true, 'movimientos' => $stmt->fetchAll(), 'stats' => $stats]);
 
     // ================================================================
+    // KARDEX GLOBAL (Entradas / Salidas, todos los materiales)
+    // ================================================================
+    case 'kardex_global':
+        $tipo = $input['tipo'] ?? '';
+        if (!in_array($tipo, ['entrada', 'salida'])) jsonResponse(['error' => 'Tipo invalido.'], 400);
+
+        $where  = ['k.tipo = :tipo'];
+        $params = [':tipo' => $tipo];
+        if (!empty($input['desde'])) { $where[] = "k.fecha >= :desde"; $params[':desde'] = $input['desde'] . ' 00:00:00'; }
+        if (!empty($input['hasta'])) { $where[] = "k.fecha <= :hasta"; $params[':hasta'] = $input['hasta'] . ' 23:59:59'; }
+        if (!empty($input['q']))     { $where[] = "(p.nombre ILIKE :q OR p.codigo ILIKE :q)"; $params[':q'] = '%' . $input['q'] . '%'; }
+
+        $wClause = implode(' AND ', $where);
+
+        $stmt = $db->prepare("
+            SELECT k.*, p.nombre AS producto_nombre, p.codigo AS producto_codigo, u.nombre AS usuario_nombre
+            FROM kardex k
+            JOIN productos p ON p.id = k.producto_id
+            LEFT JOIN usuarios u ON u.id = k.usuario_id
+            WHERE $wClause
+            ORDER BY k.fecha DESC LIMIT 200");
+        $stmt->execute($params);
+        jsonResponse(['ok' => true, 'movimientos' => $stmt->fetchAll()]);
+
+    // ================================================================
     // CATEGORÃAS
     // ================================================================
     case 'categorias_listar':
@@ -403,13 +477,34 @@ try { switch ($action) {
     // COMBOS
     // ================================================================
     case 'generar_codigo':
-        jsonResponse(['ok' => true, 'codigo' => generarCodigo('MAT', 'productos', 'codigo')]);
+        $nombreRef = trim((string)($input['nombre'] ?? ''));
+        $codigoGen = $nombreRef !== ''
+            ? generarCodigoAbreviado($db, $nombreRef)
+            : generarCodigo('MAT', 'productos', 'codigo');
+        jsonResponse(['ok' => true, 'codigo' => $codigoGen]);
 
     case 'combos':
         $cats = $db->query("SELECT id, nombre FROM categorias_producto WHERE activo ORDER BY nombre")->fetchAll();
         $unidades = $db->query("SELECT id, codigo, descripcion FROM fe_unidades WHERE estado ORDER BY codigo")->fetchAll();
         $afectaciones = $db->query("SELECT id, codigo, descripcion FROM fe_tipos_afectacion_igv WHERE estado ORDER BY codigo")->fetchAll();
-        jsonResponse(['ok' => true, 'categorias' => $cats, 'unidades' => $unidades, 'afectaciones' => $afectaciones]);
+        $unidadesMedida = $db->query("SELECT id, codigo, nombre FROM unidades_medida WHERE activo ORDER BY nombre")->fetchAll();
+        jsonResponse(['ok' => true, 'categorias' => $cats, 'unidades' => $unidades, 'afectaciones' => $afectaciones, 'unidades_medida' => $unidadesMedida]);
+
+    // ================================================================
+    // UNIDADES DE MEDIDA (catalogo interno de Almacen)
+    // ================================================================
+    case 'unidad_medida_guardar':
+        $codigo = trim((string)($input['codigo'] ?? ''));
+        $nombre = trim((string)($input['nombre'] ?? ''));
+        if ($codigo === '' || $nombre === '') jsonResponse(['error' => 'Codigo y nombre son obligatorios.'], 400);
+
+        $stmt = $db->prepare("SELECT id FROM unidades_medida WHERE codigo = :cod");
+        $stmt->execute([':cod' => $codigo]);
+        if ($stmt->fetch()) jsonResponse(['error' => 'Ya existe una unidad con ese codigo.'], 400);
+
+        $stmt = $db->prepare("INSERT INTO unidades_medida (codigo, nombre) VALUES (:cod, :nom) RETURNING id");
+        $stmt->execute([':cod' => $codigo, ':nom' => $nombre]);
+        jsonResponse(['ok' => true, 'id' => (int)$stmt->fetchColumn(), 'codigo' => $codigo, 'nombre' => $nombre]);
 
     default:
         jsonResponse(['error' => 'Accion no reconocida.'], 400);

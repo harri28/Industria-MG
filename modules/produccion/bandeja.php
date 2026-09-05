@@ -45,7 +45,7 @@ function esc_b($s) { return htmlspecialchars((string)$s, ENT_QUOTES); }
 <!-- ===========================================================
      VISTA BANDEJA DE UN ÁREA
      =========================================================== -->
-<div style="margin-bottom:14px">
+<div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
     <h2 style="margin:0;display:flex;align-items:center;gap:10px;font-size:1.1rem">
         <?php if ($area['es_externa']): ?>
             <i class="fa fa-globe" style="color:#f59e0b"></i>
@@ -57,6 +57,9 @@ function esc_b($s) { return htmlspecialchars((string)$s, ENT_QUOTES); }
             <span style="font-size:.75rem;color:#92400e;background:#fef3c7;padding:3px 8px;border-radius:10px">Servicio externo</span>
         <?php endif; ?>
     </h2>
+    <a href="<?= APP_BASE ?>mobile/produccion/index.php?area_id=<?= $area['id'] ?>" class="btn btn-secondary btn-sm" target="_blank">
+        <i class="fa fa-mobile-screen"></i> Abrir en móvil
+    </a>
 </div>
 
 <div class="card">

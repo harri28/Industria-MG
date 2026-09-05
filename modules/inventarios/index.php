@@ -1,16 +1,43 @@
 ﻿<?php
-$page_title      = 'Inventarios';
-$page_breadcrumb = '<span>Operaciones</span> <span>/</span> Inventarios';
+$page_title      = 'Almacén';
+$page_breadcrumb = '<span>Operaciones</span> <span>/</span> Almacén';
 require_once __DIR__ . '/../../includes/header.php';
+
+$permisoAlmacen = nivelPermiso('inventarios');
+if ($permisoAlmacen === 'ninguno') {
+    echo '<div class="alert alert-danger" style="margin:20px">
+        <i class="fa fa-lock"></i> No tienes permisos para acceder al módulo de Almacén. Contacta a un administrador.
+    </div>';
+    require_once __DIR__ . '/../../includes/footer.php';
+    exit;
+}
+$almacenSoloLectura = $permisoAlmacen !== 'completo';
 ?>
+
+<style>
+#tablaprod tbody tr.fila-producto,
+#tablarep tbody tr.fila-producto { cursor: pointer; transition: background-color .15s ease; }
+#tablaprod tbody tr.fila-producto:hover,
+#tablarep tbody tr.fila-producto:hover { background: #ffedd5; }
+.prod-modal-grid { display: grid; grid-template-columns: 190px 1fr; gap: 24px; }
+@media (max-width: 640px) {
+    .prod-modal-grid { grid-template-columns: 1fr; }
+}
+</style>
 
 <!-- TABS -->
 <div class="tabs">
     <div class="tab active" data-group="inv" data-target="tabProductos">
-        <i class="fa fa-boxes-stacked"></i> Materiales
+        <i class="fa fa-boxes-stacked"></i> Inventario
     </div>
     <div class="tab" data-group="inv" data-target="tabRepuestos">
         <i class="fa fa-screwdriver-wrench"></i> Repuestos
+    </div>
+    <div class="tab" data-group="inv" data-target="tabEntradas">
+        <i class="fa fa-arrow-down"></i> Entradas
+    </div>
+    <div class="tab" data-group="inv" data-target="tabSalidas">
+        <i class="fa fa-arrow-up"></i> Salidas
     </div>
     <div class="tab" data-group="inv" data-target="tabKardex">
         <i class="fa fa-list"></i> Kardex
@@ -21,7 +48,7 @@ require_once __DIR__ . '/../../includes/header.php';
 </div>
 
 <!-- ============================================================
-     TAB: MATERIALES (PRODUCTOS)
+     TAB: INVENTARIO (PRODUCTOS)
      ============================================================ -->
 <div class="tab-content active" data-group="inv" id="tabProductos">
     <div class="toolbar">
@@ -50,9 +77,11 @@ require_once __DIR__ . '/../../includes/header.php';
             </label>
         </div>
         <div class="toolbar-right">
+            <?php if (!$almacenSoloLectura): ?>
             <button class="btn btn-primary" onclick="abrirModalProducto()">
                 <i class="fa fa-plus"></i> Nuevo Material
             </button>
+            <?php endif; ?>
         </div>
     </div>
     <div class="card">
@@ -61,8 +90,8 @@ require_once __DIR__ . '/../../includes/header.php';
                 <thead><tr>
                     <th style="width:52px"></th>
                     <th>Codigo</th><th>Nombre</th><th>Categoria</th>
-                    <th>Unidad</th><th>Stock</th><th>Min/Max</th>
-                    <th>P. de Venta</th><th>Total</th><th></th>
+                    <th>Unidad</th><th>Ubicacion</th><th>Stock</th><th>Min/Max</th>
+                    <th>P. de Venta</th><th>Total</th>
                 </tr></thead>
                 <tbody>
                     <tr><td colspan="10" class="text-center">
@@ -92,9 +121,11 @@ require_once __DIR__ . '/../../includes/header.php';
             </label>
         </div>
         <div class="toolbar-right">
+            <?php if (!$almacenSoloLectura): ?>
             <button class="btn btn-primary" onclick="abrirModalRepuesto()">
                 <i class="fa fa-plus"></i> Nuevo Repuesto
             </button>
+            <?php endif; ?>
         </div>
     </div>
     <div class="card">
@@ -103,11 +134,101 @@ require_once __DIR__ . '/../../includes/header.php';
                 <thead><tr>
                     <th style="width:52px"></th>
                     <th>Codigo</th><th>Nombre</th><th>Categoria</th>
-                    <th>Unidad</th><th>Stock</th><th>Min/Max</th>
-                    <th>P. de Venta</th><th>Total</th><th></th>
+                    <th>Unidad</th><th>Ubicacion</th><th>Stock</th><th>Min/Max</th>
+                    <th>P. de Venta</th><th>Total</th>
                 </tr></thead>
                 <tbody>
                     <tr><td colspan="10" class="text-center">
+                        <div class="loading"><div class="spinner"></div></div>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     TAB: ENTRADAS
+     ============================================================ -->
+<div class="tab-content" data-group="inv" id="tabEntradas">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-box">
+                <span class="icon"><i class="fa fa-search"></i></span>
+                <input type="text" class="form-control" id="entSearch" placeholder="Buscar material...">
+            </div>
+            <input type="date" class="form-control" id="entDesde" style="width:150px">
+            <input type="date" class="form-control" id="entHasta" style="width:150px">
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-secondary" onclick="cargarEntradas()">
+                <i class="fa fa-search"></i> Consultar
+            </button>
+            <?php if (!$almacenSoloLectura): ?>
+            <button class="btn btn-primary" onclick="abrirModalMovimiento('entrada')">
+                <i class="fa fa-plus"></i> Nueva Entrada
+            </button>
+            <?php endif; ?>
+        </div>
+    </div>
+    <div class="card">
+        <div class="table-responsive">
+            <table id="tablaEntradas">
+                <thead><tr>
+                    <th>Fecha</th><th>Codigo</th><th>Material</th>
+                    <th style="text-align:right">Cantidad</th>
+                    <th style="text-align:right">P. Unit.</th>
+                    <th style="text-align:right">Saldo</th>
+                    <th>Usuario</th>
+                    <th>Observaciones</th>
+                </tr></thead>
+                <tbody>
+                    <tr><td colspan="8" class="text-center">
+                        <div class="loading"><div class="spinner"></div></div>
+                    </td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     TAB: SALIDAS
+     ============================================================ -->
+<div class="tab-content" data-group="inv" id="tabSalidas">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-box">
+                <span class="icon"><i class="fa fa-search"></i></span>
+                <input type="text" class="form-control" id="salSearch" placeholder="Buscar material...">
+            </div>
+            <input type="date" class="form-control" id="salDesde" style="width:150px">
+            <input type="date" class="form-control" id="salHasta" style="width:150px">
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-secondary" onclick="cargarSalidas()">
+                <i class="fa fa-search"></i> Consultar
+            </button>
+            <?php if (!$almacenSoloLectura): ?>
+            <button class="btn btn-primary" onclick="abrirModalMovimiento('salida')">
+                <i class="fa fa-plus"></i> Nueva Salida
+            </button>
+            <?php endif; ?>
+        </div>
+    </div>
+    <div class="card">
+        <div class="table-responsive">
+            <table id="tablaSalidas">
+                <thead><tr>
+                    <th>Fecha</th><th>Codigo</th><th>Material</th>
+                    <th style="text-align:right">Cantidad</th>
+                    <th style="text-align:right">P. Unit.</th>
+                    <th style="text-align:right">Saldo</th>
+                    <th>Usuario</th>
+                    <th>Observaciones</th>
+                </tr></thead>
+                <tbody>
+                    <tr><td colspan="8" class="text-center">
                         <div class="loading"><div class="spinner"></div></div>
                     </td></tr>
                 </tbody>
@@ -145,9 +266,11 @@ require_once __DIR__ . '/../../includes/header.php';
         <strong id="kardexProductoNombre"></strong>
         <span>Stock: <strong id="kardexStockActual"></strong></span>
         <span>P. Prom.: <strong id="kardexPrecioPromedio"></strong></span>
+        <?php if (!$almacenSoloLectura): ?>
         <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;margin-left:auto" onclick="abrirAjuste()">
             <i class="fa fa-sliders"></i> Ajuste
         </button>
+        <?php endif; ?>
     </div>
 
     <div id="kardexStats" style="display:none;gap:.75rem;margin-bottom:.75rem;grid-template-columns:repeat(3,1fr)">
@@ -212,9 +335,11 @@ require_once __DIR__ . '/../../includes/header.php';
     <div class="toolbar">
         <div class="toolbar-left"></div>
         <div class="toolbar-right">
+            <?php if (!$almacenSoloLectura): ?>
             <button class="btn btn-primary" onclick="abrirModalCategoria()">
                 <i class="fa fa-plus"></i> Nueva Categoria
             </button>
+            <?php endif; ?>
         </div>
     </div>
     <div class="card">
@@ -237,20 +362,22 @@ require_once __DIR__ . '/../../includes/header.php';
      MODAL: MATERIAL / PRODUCTO
      ============================================================ -->
 <div class="modal-overlay" id="modalProducto">
-    <div class="modal" style="max-width:600px">
+    <div class="modal modal-xl">
         <div class="modal-header">
             <span class="modal-title" id="modalProdTitle">Nuevo Material</span>
             <button class="modal-close" onclick="Modal.close('modalProducto')">&times;</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="prod_id">
-            <div class="form-group">
-                <label class="form-label">Imagen</label>
-                <div style="display:flex;align-items:center;gap:14px">
-                    <div id="prod_img_preview" style="width:80px;height:80px;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+            <div class="prod-modal-grid">
+
+                <!-- IZQUIERDA: imagen + flags -->
+                <div>
+                    <label class="form-label">Imagen</label>
+                    <div id="prod_img_preview" style="width:100%;aspect-ratio:1;border:2px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden">
                         <span style="font-size:.68rem;color:var(--text-secondary);text-align:center;padding:4px">Sin imagen</span>
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:6px">
+                    <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
                         <input type="file" id="prod_imagen" accept="image/*" style="display:none" onchange="previewImagen(this)">
                         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('prod_imagen').click()">
                             <i class="fa fa-upload"></i> Subir imagen
@@ -259,121 +386,183 @@ require_once __DIR__ . '/../../includes/header.php';
                             <i class="fa fa-trash"></i> Quitar imagen
                         </button>
                     </div>
+                    <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.8rem">
+                            <input type="checkbox" id="prod_incluye_igv" checked>
+                            Precio incluye IGV
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.8rem">
+                            <input type="checkbox" id="prod_es_repuesto">
+                            Es repuesto
+                        </label>
+                    </div>
+                </div>
+
+                <!-- DERECHA: campos -->
+                <div>
+                    <div class="form-group">
+                        <label class="form-label">Codigo de barras</label>
+                        <div class="search-box" style="border:1.5px solid var(--primary);border-radius:var(--radius-sm);background:#fff7ed"
+                             title="Escanea con el lector o escribe manualmente">
+                            <span class="icon" style="color:var(--primary)"><i class="fa fa-barcode"></i></span>
+                            <input type="text" class="form-control" id="prod_codigo_barras" placeholder="Escanear o escribir..."
+                                   style="width:100%;background:transparent;border:none"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+                        </div>
+                    </div>
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label class="form-label">Codigo *</label>
+                            <input type="text" class="form-control" id="prod_codigo" placeholder="Ej: AC-001">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Unidad</label>
+                            <div style="display:flex;gap:6px">
+                                <select class="form-control" id="prod_unidad" style="flex:1"></select>
+                                <button type="button" class="btn btn-secondary btn-sm" title="Agregar unidad de medida" onclick="abrirModalUnidad()">
+                                    <i class="fa fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ubicacion</label>
+                            <input type="text" class="form-control" id="prod_ubicacion" placeholder="Ej: Rack A-3">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" id="prod_nombre" placeholder="Nombre del material">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Descripcion</label>
+                        <textarea class="form-control" id="prod_descripcion" rows="2"></textarea>
+                    </div>
+                    <div class="form-row cols-2">
+                        <div class="form-group">
+                            <label class="form-label">Tipo de item</label>
+                            <select class="form-control" id="prod_product_type">
+                                <option value="product">Producto</option>
+                                <option value="service">Servicio</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Categoria</label>
+                            <select class="form-control" id="prod_categoria_id">
+                                <option value="">— Sin categoria —</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label class="form-label">Metodo Valuacion</label>
+                            <select class="form-control" id="prod_metodo">
+                                <option value="promedio">Precio Promedio</option>
+                                <option value="fifo">FIFO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Unidad FE</label>
+                            <select class="form-control" id="prod_unidad_codigo"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Afectacion IGV</label>
+                            <select class="form-control" id="prod_afectacion_igv"></select>
+                        </div>
+                    </div>
+                    <div class="form-row cols-3">
+                        <div class="form-group">
+                            <label class="form-label">Precio de Venta (S/)</label>
+                            <input type="number" class="form-control" id="prod_precio_venta" min="0" step="0.01" value="0" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stock Minimo</label>
+                            <input type="number" class="form-control" id="prod_stock_min" min="0" step="0.001" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Stock Maximo</label>
+                            <input type="number" class="form-control" id="prod_stock_max" min="0" step="0.001" value="0">
+                        </div>
+                    </div>
+                    <div class="form-group" style="max-width:220px">
+                        <label class="form-label">Porcentaje IGV</label>
+                        <input type="number" class="form-control" id="prod_porcentaje_igv" min="0" step="0.01" value="18.00">
+                    </div>
                 </div>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Codigo *</label>
-                    <input type="text" class="form-control" id="prod_codigo" placeholder="Ej: AC-001">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Unidad</label>
-                    <select class="form-control" id="prod_unidad">
-                        <option value="unidad">Unidad</option>
-                        <option value="kg">Kilogramo</option>
-                        <option value="g">Gramo</option>
-                        <option value="m">Metro</option>
-                        <option value="m2">Metro cuadrado</option>
-                        <option value="m3">Metro cubico</option>
-                        <option value="lt">Litro</option>
-                        <option value="gln">Galon</option>
-                        <option value="caja">Caja</option>
-                        <option value="rollo">Rollo</option>
-                        <option value="par">Par</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Nombre *</label>
-                <input type="text" class="form-control" id="prod_nombre" placeholder="Nombre del material">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Descripcion</label>
-                <textarea class="form-control" id="prod_descripcion" rows="2"></textarea>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Codigo interno</label>
-                    <input type="text" class="form-control" id="prod_codigo_interno" placeholder="Codigo interno de facturacion">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Codigo de barras</label>
-                    <input type="text" class="form-control" id="prod_codigo_barras" placeholder="Opcional">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Codigo SUNAT</label>
-                    <input type="text" class="form-control" id="prod_codigo_sunat" maxlength="8" placeholder="00000000">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Tipo de item</label>
-                    <select class="form-control" id="prod_product_type">
-                        <option value="product">Producto</option>
-                        <option value="service">Servicio</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Categoria</label>
-                    <select class="form-control" id="prod_categoria_id">
-                        <option value="">— Sin categoria —</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Metodo Valuacion</label>
-                    <select class="form-control" id="prod_metodo">
-                        <option value="promedio">Precio Promedio</option>
-                        <option value="fifo">FIFO</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Unidad FE</label>
-                    <select class="form-control" id="prod_unidad_codigo"></select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Afectacion IGV</label>
-                    <select class="form-control" id="prod_afectacion_igv"></select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Stock Minimo</label>
-                    <input type="number" class="form-control" id="prod_stock_min" min="0" step="0.001" value="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Stock Maximo</label>
-                    <input type="number" class="form-control" id="prod_stock_max" min="0" step="0.001" value="0">
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Precio de Venta (S/)</label>
-                <input type="number" class="form-control" id="prod_precio_venta" min="0" step="0.01" value="0" placeholder="0.00">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">Porcentaje IGV</label>
-                    <input type="number" class="form-control" id="prod_porcentaje_igv" min="0" step="0.01" value="18.00">
-                </div>
-                <div class="form-group" style="display:flex;align-items:end">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.875rem">
-                        <input type="checkbox" id="prod_incluye_igv" checked>
-                        El precio de venta incluye IGV
-                    </label>
-                </div>
-            </div>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.875rem">
-                <input type="checkbox" id="prod_es_repuesto">
-                Es repuesto para maquinaria vendida
-            </label>
         </div>
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="Modal.close('modalProducto')">Cancelar</button>
             <button class="btn btn-primary" onclick="guardarProducto()">
                 <i class="fa fa-save"></i> Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL: NUEVA UNIDAD DE MEDIDA
+     ============================================================ -->
+<div class="modal-overlay" id="modalUnidad">
+    <div class="modal" style="max-width:400px">
+        <div class="modal-header">
+            <span class="modal-title">Nueva Unidad de Medida</span>
+            <button class="modal-close" onclick="Modal.close('modalUnidad')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Codigo *</label>
+                <input type="text" class="form-control" id="uni_codigo" placeholder="Ej: pln (plancha)" maxlength="10">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" class="form-control" id="uni_nombre" placeholder="Ej: Plancha">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="Modal.close('modalUnidad')">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarUnidad()">
+                <i class="fa fa-save"></i> Guardar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL: NUEVA ENTRADA / SALIDA
+     ============================================================ -->
+<div class="modal-overlay" id="modalMovimiento">
+    <div class="modal" style="max-width:460px">
+        <div class="modal-header">
+            <span class="modal-title" id="modalMovTitle">Nueva Entrada</span>
+            <button class="modal-close" onclick="Modal.close('modalMovimiento')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="mov_tipo" value="entrada">
+            <div class="form-group">
+                <label class="form-label">Material *</label>
+                <select class="form-control" id="mov_producto_id">
+                    <option value="">— Seleccionar material —</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">Cantidad *</label>
+                    <input type="number" class="form-control" id="mov_cantidad" min="0.001" step="0.001" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Precio Unitario <span style="color:var(--text-secondary);font-size:.75rem">(opcional)</span></label>
+                    <input type="number" class="form-control" id="mov_precio" min="0" step="0.01" placeholder="Opcional">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Observaciones</label>
+                <textarea class="form-control" id="mov_obs" rows="2"></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="Modal.close('modalMovimiento')">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarMovimiento()">
+                <i class="fa fa-check"></i> Registrar
             </button>
         </div>
     </div>
@@ -458,8 +647,13 @@ require_once __DIR__ . '/../../includes/header.php';
 <?php ob_start(); ?>
 <script>
 const API_INV = 'api.php';
+const ALMACEN_SOLO_LECTURA = <?= json_encode($almacenSoloLectura) ?>;
 let combos = { categorias: [] };
 let todosProductos = [];
+
+function irDetalleProducto(id) {
+    window.location.href = `producto.php?id=${id}`;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
@@ -467,6 +661,14 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarProductos();
         cargarRepuestos();
         cargarCategorias();
+        cargarEntradas();
+        cargarSalidas();
+
+        const editarId = new URLSearchParams(window.location.search).get('editar');
+        if (editarId && !ALMACEN_SOLO_LECTURA) {
+            editarProducto(parseInt(editarId, 10));
+            window.history.replaceState({}, '', 'index.php');
+        }
     });
 
     let debTimer;
@@ -486,6 +688,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('repCategoria').addEventListener('change', cargarRepuestos);
     document.getElementById('repCritico').addEventListener('change', cargarRepuestos);
 
+    let entDebTimer;
+    document.getElementById('entSearch').addEventListener('input', () => {
+        clearTimeout(entDebTimer);
+        entDebTimer = setTimeout(cargarEntradas, 350);
+    });
+    let salDebTimer;
+    document.getElementById('salSearch').addEventListener('input', () => {
+        clearTimeout(salDebTimer);
+        salDebTimer = setTimeout(cargarSalidas, 350);
+    });
+
     // Foco automático en el campo de escaneo al cargar
     document.getElementById('scanBarra').focus();
 });
@@ -500,7 +713,10 @@ async function buscarPorCodigo(codigo) {
     try {
         const d = await apiGet(`${API_INV}?action=productos_listar&q=${encodeURIComponent(codigo)}`);
         const lista = d.productos || [];
-        const exacto = lista.find(p => (p.codigo || '').toLowerCase() === codigo.toLowerCase());
+        const exacto = lista.find(p =>
+            (p.codigo || '').toLowerCase() === codigo.toLowerCase() ||
+            (p.codigo_barras || '').toLowerCase() === codigo.toLowerCase()
+        );
 
         if (exacto) {
             Toast.success(`${exacto.nombre} · Stock: ${parseFloat(exacto.stock_actual||0).toFixed(2)} ${exacto.unidad||''}`);
@@ -539,15 +755,46 @@ async function cargarCombos() {
             (d.unidades || []).map(u => `<option value="${u.codigo}">${u.codigo} - ${u.descripcion}</option>`).join('');
         document.getElementById('prod_afectacion_igv').innerHTML =
             (d.afectaciones || []).map(a => `<option value="${a.codigo}">${a.codigo} - ${a.descripcion}</option>`).join('');
+        renderUnidadesMedida();
 
         const dp = await apiGet(API_INV + '?action=productos_listar');
         todosProductos = dp.productos || [];
-        document.getElementById('kardexProducto').innerHTML =
-            '<option value="">— Seleccionar material —</option>' +
+        const prodOpts = '<option value="">— Seleccionar material —</option>' +
             todosProductos.map(p =>
                 `<option value="${p.id}" data-stock="${p.stock_actual}" data-pp="${p.precio_promedio}" data-nombre="${p.nombre}">[${p.codigo}] ${p.nombre}</option>`
             ).join('');
+        document.getElementById('kardexProducto').innerHTML = prodOpts;
+        document.getElementById('mov_producto_id').innerHTML = prodOpts;
     } catch(e) { console.error('Combos error:', e); }
+}
+
+function renderUnidadesMedida(seleccionar) {
+    const sel = document.getElementById('prod_unidad');
+    const actual = seleccionar || sel.value;
+    sel.innerHTML = (combos.unidades_medida || []).map(u => `<option value="${u.codigo}">${u.nombre}</option>`).join('');
+    if (actual) sel.value = actual;
+}
+
+function abrirModalUnidad() {
+    document.getElementById('uni_codigo').value = '';
+    document.getElementById('uni_nombre').value = '';
+    Modal.open('modalUnidad');
+}
+
+async function guardarUnidad() {
+    const codigo = document.getElementById('uni_codigo').value.trim();
+    const nombre = document.getElementById('uni_nombre').value.trim();
+    if (!codigo || !nombre) return Toast.error('Codigo y nombre son obligatorios.');
+    try {
+        const r = await apiPost(API_INV, { action: 'unidad_medida_guardar', codigo, nombre });
+        if (r.ok) {
+            combos.unidades_medida = combos.unidades_medida || [];
+            combos.unidades_medida.push({ id: r.id, codigo: r.codigo, nombre: r.nombre });
+            renderUnidadesMedida(r.codigo);
+            Toast.success('Unidad agregada.');
+            Modal.close('modalUnidad');
+        } else Toast.error(r.error || 'Error al guardar');
+    } catch(e) { Toast.error(e.message || 'Error al guardar'); }
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -568,7 +815,7 @@ async function cargarProductos() {
             const imgCell = p.imagen
                 ? `<img src="../../assets/uploads/materiales/${p.imagen}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">`
                 : `<div style="width:40px;height:40px;border:1px dashed var(--border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:.65rem;line-height:1.1;text-align:center">sin<br>img</div>`;
-            return `<tr>
+            return `<tr class="fila-producto" data-id="${p.id}" onclick="irDetalleProducto(${p.id})">
                 <td style="text-align:center">${imgCell}</td>
                 <td><code>${p.codigo}</code></td>
                 <td>
@@ -577,6 +824,7 @@ async function cargarProductos() {
                 </td>
                 <td>${p.categoria_nombre || '—'}</td>
                 <td>${p.unidad}</td>
+                <td>${p.ubicacion || '—'}</td>
                 <td>
                     <strong style="color:${esCritico?'var(--danger)':'inherit'}">${Math.round(p.stock_actual)}</strong>
                     ${esCritico ? ' <i class="fa fa-triangle-exclamation" style="color:var(--danger);font-size:.8rem" title="Stock critico"></i>' : ''}
@@ -584,19 +832,6 @@ async function cargarProductos() {
                 <td style="font-size:.82rem">${Math.round(p.stock_minimo)} / ${parseFloat(p.stock_maximo)>0 ? Math.round(p.stock_maximo) : 'inf'}</td>
                 <td>${formatMoney(p.precio_venta)}</td>
                 <td>${formatMoney(valor)}</td>
-                <td>
-                    <div style="display:flex;gap:.25rem">
-                        <button class="btn btn-secondary btn-sm" onclick="editarProducto(${p.id})" title="Editar">
-                            <i class="fa fa-pen"></i>
-                        </button>
-                        <button class="btn btn-secondary btn-sm" title="Ver Kardex" onclick="verKardexProducto(${p.id})">
-                            <i class="fa fa-list"></i>
-                        </button>
-                        <button class="btn btn-secondary btn-sm" title="Ajuste de stock" onclick="abrirAjuste(${p.id},'${p.nombre.replace(/'/g,"\\'")}',${p.stock_actual})">
-                            <i class="fa fa-sliders"></i>
-                        </button>
-                    </div>
-                </td>
             </tr>`;
         }).join('') || '<tr><td colspan="10" class="text-center text-muted" style="padding:1.5rem">Sin materiales registrados</td></tr>';
     } catch(e) {
@@ -610,14 +845,13 @@ async function abrirModalProducto() {
     document.getElementById('prod_codigo').value      = '...';
     document.getElementById('prod_nombre').value      = '';
     document.getElementById('prod_descripcion').value = '';
-    document.getElementById('prod_codigo_interno').value = '';
     document.getElementById('prod_codigo_barras').value = '';
-    document.getElementById('prod_codigo_sunat').value = '00000000';
     document.getElementById('prod_product_type').value = 'product';
     document.getElementById('prod_unidad').value      = 'unidad';
     document.getElementById('prod_unidad_codigo').value = 'NIU';
     document.getElementById('prod_afectacion_igv').value = '10';
     document.getElementById('prod_metodo').value      = 'promedio';
+    document.getElementById('prod_ubicacion').value   = '';
     document.getElementById('prod_stock_min').value    = '0';
     document.getElementById('prod_stock_max').value    = '0';
     document.getElementById('prod_precio_venta').value = '0';
@@ -634,12 +868,39 @@ async function abrirModalProducto() {
     preview.dataset.removed = '';
     document.getElementById('prod_btn_quitar').style.display = 'none';
     document.getElementById('modalProdTitle').textContent = 'Nuevo Material';
+    codigoEditadoManualmente = false;
     Modal.open('modalProducto');
+    // Enfocar el campo de código de barras: si el foco queda en otro input
+    // (p.ej. "Código" de una apertura anterior del modal), el lector físico
+    // escribe ahí en vez del campo de escaneo.
+    setTimeout(() => document.getElementById('prod_codigo_barras').focus(), 50);
     try {
         const d = await apiGet(API_INV + '?action=generar_codigo');
         if (d.ok) document.getElementById('prod_codigo').value = d.codigo;
     } catch(e) { document.getElementById('prod_codigo').value = ''; }
 }
+
+// Codigo interno sugerido como abreviacion del nombre (ej. "Carro" -> "CRRO").
+// Se regenera mientras el usuario no haya editado el codigo a mano.
+let codigoEditadoManualmente = false;
+let nombreDebTimer;
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('prod_codigo').addEventListener('input', () => {
+        codigoEditadoManualmente = true;
+    });
+    document.getElementById('prod_nombre').addEventListener('input', () => {
+        clearTimeout(nombreDebTimer);
+        nombreDebTimer = setTimeout(async () => {
+            const esNuevo = !document.getElementById('prod_id').value;
+            const nombre  = document.getElementById('prod_nombre').value.trim();
+            if (!esNuevo || codigoEditadoManualmente || !nombre) return;
+            try {
+                const d = await apiGet(`${API_INV}?action=generar_codigo&nombre=${encodeURIComponent(nombre)}`);
+                if (d.ok) document.getElementById('prod_codigo').value = d.codigo;
+            } catch(e) { /* mantener codigo actual si falla */ }
+        }, 400);
+    });
+});
 
 async function editarProducto(id) {
     try {
@@ -653,14 +914,13 @@ async function editarProducto(id) {
         document.getElementById('prod_codigo').value      = p.codigo;
         document.getElementById('prod_nombre').value      = p.nombre;
         document.getElementById('prod_descripcion').value = p.descripcion || '';
-        document.getElementById('prod_codigo_interno').value = p.codigo_interno || p.codigo || '';
         document.getElementById('prod_codigo_barras').value = p.codigo_barras || '';
-        document.getElementById('prod_codigo_sunat').value = p.codigo_sunat || '00000000';
         document.getElementById('prod_product_type').value = p.product_type || 'product';
         document.getElementById('prod_unidad').value      = p.unidad;
         document.getElementById('prod_unidad_codigo').value = p.unidad_codigo || 'NIU';
         document.getElementById('prod_afectacion_igv').value = p.afectacion_igv_codigo || '10';
         document.getElementById('prod_metodo').value      = p.metodo_valuacion;
+        document.getElementById('prod_ubicacion').value   = p.ubicacion || '';
         document.getElementById('prod_stock_min').value    = p.stock_minimo;
         document.getElementById('prod_stock_max').value    = p.stock_maximo;
         document.getElementById('prod_precio_venta').value = p.precio_venta ?? 0;
@@ -696,14 +956,13 @@ async function guardarProducto() {
     fd.append('codigo', codigo);
     fd.append('nombre', nombre);
     fd.append('descripcion', document.getElementById('prod_descripcion').value);
-    fd.append('codigo_interno', document.getElementById('prod_codigo_interno').value);
     fd.append('codigo_barras', document.getElementById('prod_codigo_barras').value);
-    fd.append('codigo_sunat', document.getElementById('prod_codigo_sunat').value);
     fd.append('categoria_id', document.getElementById('prod_categoria_id').value || '');
     fd.append('unidad', document.getElementById('prod_unidad').value);
     fd.append('unidad_codigo', document.getElementById('prod_unidad_codigo').value);
     fd.append('afectacion_igv_codigo', document.getElementById('prod_afectacion_igv').value);
     fd.append('metodo_valuacion', document.getElementById('prod_metodo').value);
+    fd.append('ubicacion', document.getElementById('prod_ubicacion').value);
     fd.append('stock_minimo', document.getElementById('prod_stock_min').value);
     fd.append('stock_maximo', document.getElementById('prod_stock_max').value);
     fd.append('precio_venta', document.getElementById('prod_precio_venta').value);
@@ -848,6 +1107,74 @@ async function guardarAjuste() {
     } catch(e) { Toast.error(e.message || 'Error al ajustar'); }
 }
 
+// ══════════════════════════════════════════════════
+// ENTRADAS / SALIDAS
+// ══════════════════════════════════════════════════
+async function cargarEntradas() { cargarMovimientos('entrada'); }
+async function cargarSalidas()  { cargarMovimientos('salida'); }
+
+async function cargarMovimientos(tipo) {
+    const prefix = tipo === 'entrada' ? 'ent' : 'sal';
+    const q      = document.getElementById(`${prefix}Search`).value;
+    const desde  = document.getElementById(`${prefix}Desde`).value;
+    const hasta  = document.getElementById(`${prefix}Hasta`).value;
+    const tbodySel = tipo === 'entrada' ? '#tablaEntradas tbody' : '#tablaSalidas tbody';
+    try {
+        const d = await apiGet(`${API_INV}?action=kardex_global&tipo=${tipo}&q=${encodeURIComponent(q)}&desde=${desde}&hasta=${hasta}`);
+        if (!d.ok) return;
+        document.querySelector(tbodySel).innerHTML = d.movimientos.map(m => `<tr>
+            <td style="white-space:nowrap">${formatDate(m.fecha)}</td>
+            <td><code>${m.producto_codigo}</code></td>
+            <td>${m.producto_nombre}</td>
+            <td style="text-align:right"><strong>${m.cantidad}</strong></td>
+            <td style="text-align:right">${formatMoney(m.precio_unitario)}</td>
+            <td style="text-align:right">${m.saldo_cantidad}</td>
+            <td style="font-size:.8rem">${m.usuario_nombre || '—'}</td>
+            <td style="font-size:.8rem">${m.observaciones || '—'}</td>
+        </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted" style="padding:1.5rem">Sin ${tipo === 'entrada' ? 'entradas' : 'salidas'} registradas</td></tr>`;
+    } catch(e) {
+        document.querySelector(tbodySel).innerHTML =
+            `<tr><td colspan="8" class="text-center" style="color:var(--danger)">Error al cargar ${tipo === 'entrada' ? 'entradas' : 'salidas'}</td></tr>`;
+    }
+}
+
+function abrirModalMovimiento(tipo) {
+    document.getElementById('mov_tipo').value = tipo;
+    document.getElementById('mov_producto_id').value = '';
+    document.getElementById('mov_cantidad').value = '';
+    document.getElementById('mov_precio').value = '';
+    document.getElementById('mov_obs').value = '';
+    document.getElementById('modalMovTitle').textContent = tipo === 'entrada' ? 'Nueva Entrada' : 'Nueva Salida';
+    Modal.open('modalMovimiento');
+}
+
+async function guardarMovimiento() {
+    const tipo = document.getElementById('mov_tipo').value;
+    const producto_id = document.getElementById('mov_producto_id').value;
+    const qty = parseFloat(document.getElementById('mov_cantidad').value);
+    if (!producto_id) return Toast.error('Seleccione un material.');
+    if (!qty || qty <= 0) return Toast.error('Ingrese una cantidad valida.');
+    try {
+        const r = await apiPost(API_INV, {
+            action:          'ajuste_stock',
+            producto_id,
+            tipo,
+            cantidad:        qty,
+            precio_unitario: document.getElementById('mov_precio').value || null,
+            observaciones:   document.getElementById('mov_obs').value,
+        });
+        if (r.ok) {
+            Toast.success(`Stock actualizado: ${r.nuevo_stock}`);
+            Modal.close('modalMovimiento');
+            cargarProductos();
+            cargarRepuestos();
+            cargarCombos();
+            if (tipo === 'entrada') cargarEntradas(); else cargarSalidas();
+            if (document.getElementById('kardexProducto').value == producto_id) cargarKardex();
+        } else Toast.error(r.error || 'Error al registrar');
+    } catch(e) { Toast.error(e.message || 'Error al registrar'); }
+}
+
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // CATEGORIAS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -860,6 +1187,7 @@ async function cargarCategorias() {
             <td>${c.descripcion || '—'}</td>
             <td>${c.total_productos}</td>
             <td>
+                ${ALMACEN_SOLO_LECTURA ? '' : `
                 <div style="display:flex;gap:.25rem">
                     <button class="btn btn-secondary btn-sm" onclick="editarCategoria(${c.id},'${c.nombre.replace(/'/g,"\\'")}','${(c.descripcion||'').replace(/'/g,"\\'")}')">
                         <i class="fa fa-pen"></i>
@@ -867,7 +1195,7 @@ async function cargarCategorias() {
                     <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="eliminarCategoria(${c.id})">
                         <i class="fa fa-trash"></i>
                     </button>
-                </div>
+                </div>`}
             </td>
         </tr>`).join('') || '<tr><td colspan="4" class="text-center text-muted" style="padding:1.5rem">Sin categorias</td></tr>';
     } catch(e) {
@@ -937,12 +1265,13 @@ async function cargarRepuestos() {
             const imgCell = p.imagen
                 ? `<img src="../../assets/uploads/materiales/${p.imagen}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">`
                 : `<div style="width:40px;height:40px;border:1px dashed var(--border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:.65rem;line-height:1.1;text-align:center">sin<br>img</div>`;
-            return `<tr>
+            return `<tr class="fila-producto" data-id="${p.id}" onclick="irDetalleProducto(${p.id})">
                 <td style="text-align:center">${imgCell}</td>
                 <td><code>${p.codigo}</code></td>
                 <td>${p.nombre}</td>
                 <td>${p.categoria_nombre || '—'}</td>
                 <td>${p.unidad}</td>
+                <td>${p.ubicacion || '—'}</td>
                 <td>
                     <strong style="color:${esCritico?'var(--danger)':'inherit'}">${Math.round(p.stock_actual)}</strong>
                     ${esCritico ? ' <i class="fa fa-triangle-exclamation" style="color:var(--danger);font-size:.8rem" title="Stock critico"></i>' : ''}
@@ -950,19 +1279,6 @@ async function cargarRepuestos() {
                 <td style="font-size:.82rem">${Math.round(p.stock_minimo)} / ${parseFloat(p.stock_maximo)>0 ? Math.round(p.stock_maximo) : 'inf'}</td>
                 <td>${formatMoney(p.precio_venta)}</td>
                 <td>${formatMoney(valor)}</td>
-                <td>
-                    <div style="display:flex;gap:.25rem">
-                        <button class="btn btn-secondary btn-sm" onclick="editarProducto(${p.id})" title="Editar">
-                            <i class="fa fa-pen"></i>
-                        </button>
-                        <button class="btn btn-secondary btn-sm" title="Ver Kardex" onclick="verKardexProducto(${p.id})">
-                            <i class="fa fa-list"></i>
-                        </button>
-                        <button class="btn btn-secondary btn-sm" title="Ajuste de stock" onclick="abrirAjuste(${p.id},'${p.nombre.replace(/'/g,"\\'")}',${p.stock_actual})">
-                            <i class="fa fa-sliders"></i>
-                        </button>
-                    </div>
-                </td>
             </tr>`;
         }).join('') || '<tr><td colspan="10" class="text-center text-muted" style="padding:1.5rem">Sin repuestos registrados</td></tr>';
     } catch(e) {

@@ -125,7 +125,7 @@ $page_breadcrumb = $page_breadcrumb ?? '';
         <a href="<?= APP_BASE ?>modules/inventarios/index.php"
            class="nav-item <?= $modulo_actual === 'inventarios' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-boxes-stacked"></i></span>
-            <span>Inventarios</span>
+            <span>Almacén</span>
         </a>
         <a href="<?= APP_BASE ?>modules/compras/index.php"
            class="nav-item <?= $modulo_actual === 'compras' ? 'active' : '' ?>">

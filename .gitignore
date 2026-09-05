@@ -28,6 +28,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Config local de Claude Code (permisos/rutas por maquina, puede contener credenciales)
+.claude/
+
 # Temporales
 *.tmp
 *.tmp.sql

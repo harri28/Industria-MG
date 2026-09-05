@@ -523,7 +523,7 @@ try { switch ($action) {
                         WHEN m.garantia_hasta IS NULL THEN 'sin_garantia'
                         ELSE 'vencida' END AS estado_garantia,
                    (m.garantia_hasta - CURRENT_DATE) AS dias_garantia,
-                   ov.codigo AS orden_venta_codigo
+                   ov.numero AS orden_venta_codigo
             FROM maquinarias m
             LEFT JOIN clientes cl ON cl.id=m.cliente_id
             LEFT JOIN productos p ON p.id=m.producto_id
