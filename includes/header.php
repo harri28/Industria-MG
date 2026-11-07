@@ -71,6 +71,43 @@ $page_breadcrumb = $page_breadcrumb ?? '';
     ?>
     <link rel="stylesheet" href="<?= APP_BASE ?>assets/css/style.css?v=<?= $css_ver ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <?php
+    // Personalización: color del sidebar y favicon (Configuración → Personalización).
+    $sidebar_bg = '#ffffff';
+    $favicon    = '';
+    try {
+        $__cfg = getDB()->query("SELECT clave, valor FROM app_settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+        if (!empty($__cfg['sidebar_bg']) && preg_match('/^#[0-9a-fA-F]{6}$/', $__cfg['sidebar_bg'])) $sidebar_bg = $__cfg['sidebar_bg'];
+        if (!empty($__cfg['favicon'])) $favicon = $__cfg['favicon'];
+    } catch (\Throwable $e) {}
+    // Texto/acentos legibles según la luminancia del fondo elegido.
+    $__h = ltrim($sidebar_bg, '#');
+    $__r = hexdec(substr($__h, 0, 2));
+    $__g = hexdec(substr($__h, 2, 2));
+    $__b = hexdec(substr($__h, 4, 2));
+    $__lum = (0.299 * $__r + 0.587 * $__g + 0.114 * $__b); // 0..255
+    $__oscuro = $__lum < 140;
+    ?>
+    <style id="sidebarTheme">
+    :root {
+        --sidebar-bg: <?= $sidebar_bg ?>;
+    <?php if ($__oscuro): ?>
+        --sidebar-text: #cbd5e1;
+        --sidebar-hover: rgba(255,255,255,.08);
+        --sidebar-active-bg: rgba(255,255,255,.12);
+    <?php endif; ?>
+    }
+    <?php if ($__oscuro): ?>
+    .sidebar-logo { border-bottom-color: rgba(255,255,255,.10); }
+    .sidebar-logo .logo-text { color: #f1f5f9; }
+    .sidebar-footer { border-top-color: rgba(255,255,255,.10); }
+    .sidebar-footer .user-name { color: #f1f5f9; }
+    .sidebar-nav .nav-section { color: rgba(255,255,255,.45); }
+    <?php endif; ?>
+    </style>
+    <?php if ($favicon): ?>
+    <link rel="icon" href="<?= APP_BASE . htmlspecialchars($favicon, ENT_QUOTES) ?>?v=<?= @filemtime(__DIR__ . '/../' . $favicon) ?: '1' ?>">
+    <?php endif; ?>
     <script src="<?= APP_BASE ?>assets/js/main.js?v=<?= $js_ver ?>"></script>
     <script>
     try { if (localStorage.getItem('sidebar_collapsed')==='1') document.documentElement.classList.add('sidebar-collapsed'); } catch(e){}

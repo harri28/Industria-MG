@@ -142,6 +142,9 @@ $modulos = [
     <div class="tab" data-group="cfg" data-target="tabAreas">
         <i class="fa fa-sitemap"></i> Areas
     </div>
+    <div class="tab" data-group="cfg" data-target="tabPersonalizacion">
+        <i class="fa fa-palette"></i> Personalizacion
+    </div>
 </div>
 
 <!-- ============================================================
@@ -394,6 +397,146 @@ $modulos = [
 </div>
 
 <!-- ============================================================
+     TAB: PERSONALIZACION
+     ============================================================ -->
+<div class="tab-content" data-group="cfg" id="tabPersonalizacion">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fa fa-palette"></i> Apariencia del menu lateral</span>
+        </div>
+        <div style="padding:20px;max-width:560px">
+            <label class="form-label">Color del sidebar</label>
+            <p style="color:var(--text-secondary);font-size:.8rem;margin:2px 0 12px">
+                Elige un color predefinido o define uno personalizado. El texto se ajusta
+                automaticamente para mantener la legibilidad.
+            </p>
+            <div id="sidebarPresets" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"></div>
+            <div class="form-row" style="align-items:flex-end">
+                <div class="form-group">
+                    <label class="form-label">Color personalizado</label>
+                    <input type="color" id="sidebarColorInput" value="#ffffff"
+                           style="width:72px;height:42px;padding:3px;border:1px solid var(--card-border);border-radius:var(--radius-sm);cursor:pointer;background:#fff">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Codigo (#RRGGBB)</label>
+                    <input type="text" id="sidebarColorHex" class="form-control" placeholder="#0f172a" style="max-width:150px">
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="guardarPersonalizacion()">
+                <i class="fa fa-floppy-disk"></i> Guardar
+            </button>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;margin-top:18px">
+        <!-- Fondo del login -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa fa-image"></i> Fondo del login</span>
+            </div>
+            <div style="padding:20px">
+                <p style="color:var(--text-secondary);font-size:.8rem;margin:0 0 12px">
+                    Imagen de portada que se muestra detras del formulario de inicio de sesion.
+                </p>
+                <div id="loginBgPreview"
+                     style="width:100%;height:160px;border-radius:var(--radius-sm);
+                            background:#e2e8f0 center center / cover no-repeat;
+                            border:1px solid var(--card-border);margin-bottom:14px"></div>
+                <input type="file" id="loginBgFile" accept="image/png,image/jpeg,image/webp" style="display:none">
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="btn btn-primary" onclick="document.getElementById('loginBgFile').click()">
+                        <i class="fa fa-upload"></i> Subir y aplicar
+                    </button>
+                    <button class="btn btn-outline" onclick="verLoginBg()">
+                        <i class="fa fa-eye"></i> Ver fondo
+                    </button>
+                </div>
+                <p style="color:var(--text-muted);font-size:.72rem;margin:10px 0 0">JPG, PNG o WEBP</p>
+            </div>
+        </div>
+
+        <!-- Imagen del login -->
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title"><i class="fa fa-id-badge"></i> Imagen del login</span>
+            </div>
+            <div style="padding:20px">
+                <p style="color:var(--text-secondary);font-size:.8rem;margin:0 0 12px">
+                    Logo y textos que se muestran sobre el formulario de inicio de sesion.
+                </p>
+                <div id="loginLogoPreview"
+                     style="width:120px;height:120px;border-radius:var(--radius-sm);
+                            background:#f1f5f9 center center / contain no-repeat;
+                            border:1px solid var(--card-border);margin-bottom:14px"></div>
+                <input type="file" id="loginLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none">
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <button class="btn btn-primary" onclick="document.getElementById('loginLogoFile').click()">
+                        <i class="fa fa-upload"></i> Subir y aplicar
+                    </button>
+                    <button class="btn btn-outline" onclick="verLoginLogo()">
+                        <i class="fa fa-eye"></i> Ver imagen
+                    </button>
+                </div>
+                <p style="color:var(--text-muted);font-size:.72rem;margin:10px 0 16px">JPG, PNG o WEBP</p>
+
+                <div class="form-group">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" id="loginNombre" class="form-control" maxlength="60" placeholder="IndustriaMG">
+                </div>
+                <div class="form-group" style="margin-top:12px">
+                    <label class="form-label">Subtitulo</label>
+                    <input type="text" id="loginSubtitulo" class="form-control" maxlength="80" placeholder="Sistema de Gestion Industrial">
+                </div>
+                <button class="btn btn-primary" style="margin-top:14px" onclick="guardarLoginTextos()">
+                    <i class="fa fa-floppy-disk"></i> Guardar textos
+                </button>
+
+                <hr style="border:none;border-top:1px solid var(--card-border);margin:20px 0">
+                <label class="form-label">Favicon</label>
+                <p style="color:var(--text-secondary);font-size:.8rem;margin:2px 0 12px">
+                    Icono de la pestana del navegador (login y dentro del sistema).
+                </p>
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div id="faviconPreview"
+                         style="width:48px;height:48px;border-radius:8px;
+                                background:#f1f5f9 center center / contain no-repeat;
+                                border:1px solid var(--card-border);flex-shrink:0"></div>
+                    <input type="file" id="faviconFile"
+                           accept="image/png,image/svg+xml,image/x-icon,image/webp,image/jpeg,.ico" style="display:none">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        <button class="btn btn-primary" onclick="document.getElementById('faviconFile').click()">
+                            <i class="fa fa-upload"></i> Subir y aplicar
+                        </button>
+                        <button class="btn btn-outline" onclick="verFavicon()">
+                            <i class="fa fa-eye"></i> Ver
+                        </button>
+                    </div>
+                </div>
+                <p style="color:var(--text-muted);font-size:.72rem;margin:10px 0 0">ICO, PNG, SVG o WEBP</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visor del fondo del login (overlay a pantalla completa) -->
+<div id="loginBgViewer" onclick="if(event.target===this)cerrarLoginBgViewer()"
+     style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);
+            align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:24px">
+    <img id="loginBgViewerImg" src="" alt="Fondo del login"
+         style="max-width:92vw;max-height:76vh;object-fit:contain;border-radius:8px;
+                box-shadow:0 12px 48px rgba(0,0,0,.55)">
+    <div style="display:flex;gap:10px">
+        <a id="loginBgDownload" href="#" download class="btn btn-primary">
+            <i class="fa fa-download"></i> Descargar
+        </a>
+        <button class="btn btn-outline" style="color:#fff;border-color:rgba(255,255,255,.5)"
+                onclick="cerrarLoginBgViewer()">
+            <i class="fa fa-xmark"></i> Cerrar
+        </button>
+    </div>
+</div>
+
+<!-- ============================================================
      MODAL: USUARIO
      ============================================================ -->
 <div class="modal-overlay" id="modalUsuario">
@@ -560,9 +703,13 @@ $modulos = [
 <script>
 const API = '../seguridad/api.php';
 const API_CFG = 'api.php';
+const APP_BASE = '<?= APP_BASE ?>';
 const MODULOS = <?= json_encode($modulos) ?>;
 
 let todosUsuarios = [];
+let loginBgActual = 'assets/iconos/fondo.png';
+let loginLogoActual = 'assets/iconos/logo.jpeg';
+let faviconActual = '';
 
 // â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.addEventListener('DOMContentLoaded', () => {
@@ -570,6 +717,24 @@ document.addEventListener('DOMContentLoaded', () => {
     cargarUsuarios();
     cargarRoles();
     cargarAreas();
+    cargarPersonalizacion();
+
+    const colorInput = document.getElementById('sidebarColorInput');
+    const hexInput   = document.getElementById('sidebarColorHex');
+    if (colorInput) colorInput.addEventListener('input', e => seleccionarColorSidebar(e.target.value));
+    if (hexInput)   hexInput.addEventListener('change', e => {
+        const v = e.target.value.trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) seleccionarColorSidebar(v);
+    });
+
+    const loginBgFile = document.getElementById('loginBgFile');
+    if (loginBgFile) loginBgFile.addEventListener('change', guardarLoginBg);
+
+    const loginLogoFile = document.getElementById('loginLogoFile');
+    if (loginLogoFile) loginLogoFile.addEventListener('change', guardarLoginLogo);
+
+    const faviconFile = document.getElementById('faviconFile');
+    if (faviconFile) faviconFile.addEventListener('change', guardarFavicon);
 
     const ubigeoInput = document.getElementById('empUbigeo');
     if (ubigeoInput) {
@@ -1106,6 +1271,180 @@ async function eliminarArea(id, nombre) {
         cargarAreas();
     } catch(e) { Toast.error(e.message || 'Error al eliminar'); }
 }
+
+// =====================================================================
+// PERSONALIZACION (color del sidebar)
+// =====================================================================
+const SIDEBAR_PRESETS = [
+    ['#ffffff', 'Blanco'],
+    ['#0f172a', 'Negro'],
+    ['#1a2c4e', 'Azul marino'],
+    ['#1f2937', 'Grafito'],
+    ['#0b3d2e', 'Verde'],
+    ['#3b0d0d', 'Vino'],
+];
+
+function renderPresetsSidebar(activo) {
+    const cont = document.getElementById('sidebarPresets');
+    if (!cont) return;
+    const act = (activo || '').toLowerCase();
+    cont.innerHTML = SIDEBAR_PRESETS.map(([c, n]) => {
+        const sel = act === c.toLowerCase();
+        return `<button type="button" title="${n}" onclick="seleccionarColorSidebar('${c}')"
+            style="width:42px;height:42px;border-radius:8px;cursor:pointer;background:${c};
+                   border:2px solid ${sel ? 'var(--primary)' : '#e2e8f0'};
+                   box-shadow:${sel ? '0 0 0 2px var(--primary-glow)' : 'none'}"></button>`;
+    }).join('');
+}
+
+function seleccionarColorSidebar(c) {
+    document.getElementById('sidebarColorInput').value = c;
+    document.getElementById('sidebarColorHex').value   = c;
+    renderPresetsSidebar(c);
+}
+
+async function cargarPersonalizacion() {
+    try {
+        const d = await apiGet(API_CFG + '?action=ajustes_obtener');
+        const color = (d.ajustes && d.ajustes.sidebar_bg) ? d.ajustes.sidebar_bg : '#ffffff';
+        seleccionarColorSidebar(color);
+
+        const a = d.ajustes || {};
+        loginBgActual   = a.login_bg   || 'assets/iconos/fondo.png';
+        loginLogoActual = a.login_logo || 'assets/iconos/logo.jpeg';
+
+        const prevBg = document.getElementById('loginBgPreview');
+        if (prevBg) prevBg.style.backgroundImage = `url('${APP_BASE}${loginBgActual}')`;
+        const prevLogo = document.getElementById('loginLogoPreview');
+        if (prevLogo) prevLogo.style.backgroundImage = `url('${APP_BASE}${loginLogoActual}')`;
+
+        const inNombre = document.getElementById('loginNombre');
+        const inSub    = document.getElementById('loginSubtitulo');
+        if (inNombre) inNombre.value = a.login_nombre    || 'IndustriaMG';
+        if (inSub)    inSub.value    = a.login_subtitulo || 'Sistema de Gestion Industrial';
+
+        faviconActual = a.favicon || '';
+        const prevFav = document.getElementById('faviconPreview');
+        if (prevFav && faviconActual) prevFav.style.backgroundImage = `url('${APP_BASE}${faviconActual}')`;
+    } catch(e) {
+        seleccionarColorSidebar('#ffffff');
+    }
+}
+
+async function guardarLoginBg() {
+    const f = document.getElementById('loginBgFile').files[0];
+    if (!f) return Toast.error('Selecciona una imagen.');
+    const fd = new FormData();
+    fd.append('action', 'login_bg_guardar');
+    fd.append('login_bg', f);
+    try {
+        const res = await fetch(API_CFG, { method: 'POST', body: fd });
+        const r = await res.json();
+        if (r.ok) {
+            Toast.success('Fondo del login actualizado.');
+            loginBgActual = r.login_bg;
+            document.getElementById('loginBgPreview').style.backgroundImage = `url('${APP_BASE}${r.login_bg}')`;
+            document.getElementById('loginBgFile').value = '';
+        } else {
+            Toast.error(r.error || 'No se pudo subir la imagen.');
+        }
+    } catch(e) {
+        Toast.error('Error al subir la imagen.');
+    }
+}
+
+async function guardarLoginLogo() {
+    const f = document.getElementById('loginLogoFile').files[0];
+    if (!f) return Toast.error('Selecciona una imagen.');
+    const fd = new FormData();
+    fd.append('action', 'login_logo_guardar');
+    fd.append('login_logo', f);
+    try {
+        const res = await fetch(API_CFG, { method: 'POST', body: fd });
+        const r = await res.json();
+        if (r.ok) {
+            Toast.success('Imagen del login actualizada.');
+            loginLogoActual = r.login_logo;
+            document.getElementById('loginLogoPreview').style.backgroundImage = `url('${APP_BASE}${r.login_logo}')`;
+            document.getElementById('loginLogoFile').value = '';
+        } else {
+            Toast.error(r.error || 'No se pudo subir la imagen.');
+        }
+    } catch(e) {
+        Toast.error('Error al subir la imagen.');
+    }
+}
+
+async function guardarLoginTextos() {
+    const nombre    = document.getElementById('loginNombre').value.trim();
+    const subtitulo = document.getElementById('loginSubtitulo').value.trim();
+    if (!nombre) return Toast.error('El nombre no puede estar vacio.');
+    try {
+        await apiPost(API_CFG, { action: 'login_textos_guardar', login_nombre: nombre, login_subtitulo: subtitulo });
+        Toast.success('Textos del login actualizados.');
+    } catch(e) {
+        Toast.error(e.message || 'Error al guardar');
+    }
+}
+
+async function guardarPersonalizacion() {
+    const c = (document.getElementById('sidebarColorHex').value.trim()
+               || document.getElementById('sidebarColorInput').value).trim();
+    if (!/^#[0-9a-fA-F]{6}$/.test(c)) {
+        return Toast.error('Ingresa un color valido (#RRGGBB).');
+    }
+    try {
+        await apiPost(API_CFG, { action: 'personalizacion_guardar', sidebar_bg: c });
+        Toast.success('Apariencia actualizada.');
+        setTimeout(() => location.reload(), 600);
+    } catch(e) {
+        Toast.error(e.message || 'Error al guardar');
+    }
+}
+
+function abrirVisorImagen(ruta) {
+    if (!ruta) return Toast.error('No hay imagen configurada.');
+    const url = APP_BASE + ruta;
+    document.getElementById('loginBgViewerImg').src = url;
+    const dl = document.getElementById('loginBgDownload');
+    dl.href = url;
+    dl.setAttribute('download', ruta.split('/').pop());
+    document.getElementById('loginBgViewer').style.display = 'flex';
+}
+
+async function guardarFavicon() {
+    const f = document.getElementById('faviconFile').files[0];
+    if (!f) return Toast.error('Selecciona una imagen.');
+    const fd = new FormData();
+    fd.append('action', 'favicon_guardar');
+    fd.append('favicon', f);
+    try {
+        const res = await fetch(API_CFG, { method: 'POST', body: fd });
+        const r = await res.json();
+        if (r.ok) {
+            Toast.success('Favicon actualizado.');
+            faviconActual = r.favicon;
+            document.getElementById('faviconPreview').style.backgroundImage = `url('${APP_BASE}${r.favicon}')`;
+            document.getElementById('faviconFile').value = '';
+        } else {
+            Toast.error(r.error || 'No se pudo subir la imagen.');
+        }
+    } catch(e) {
+        Toast.error('Error al subir la imagen.');
+    }
+}
+
+function verLoginBg()   { abrirVisorImagen(loginBgActual); }
+function verLoginLogo() { abrirVisorImagen(loginLogoActual); }
+function verFavicon()   { abrirVisorImagen(faviconActual); }
+
+function cerrarLoginBgViewer() {
+    document.getElementById('loginBgViewer').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') cerrarLoginBgViewer();
+});
 </script>
 <?php
 $extra_js = ob_get_clean();

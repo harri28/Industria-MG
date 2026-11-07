@@ -194,6 +194,110 @@ try {
 
             jsonResponse(['ok' => true, 'logo_path' => $logoPath, 'certificate_path' => $certificatePath]);
 
+        case 'ajustes_obtener':
+            $ajustes = $db->query("SELECT clave, valor FROM app_settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+            jsonResponse(['ok' => true, 'ajustes' => $ajustes]);
+
+        case 'personalizacion_guardar':
+            $sidebarBg = trim((string)($input['sidebar_bg'] ?? ''));
+            if (!preg_match('/^#[0-9a-fA-F]{6}$/', $sidebarBg)) {
+                jsonResponse(['error' => 'Color invalido. Usa formato #RRGGBB.'], 400);
+            }
+            $stmt = $db->prepare("
+                INSERT INTO app_settings (clave, valor, updated_at)
+                VALUES ('sidebar_bg', :valor, NOW())
+                ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()
+            ");
+            $stmt->execute([':valor' => $sidebarBg]);
+            jsonResponse(['ok' => true, 'sidebar_bg' => $sidebarBg]);
+
+        case 'login_bg_guardar':
+            if (!isset($_FILES['login_bg']) || $_FILES['login_bg']['error'] !== UPLOAD_ERR_OK) {
+                jsonResponse(['error' => 'No se recibio la imagen.'], 400);
+            }
+            $ext = strtolower(pathinfo($_FILES['login_bg']['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                jsonResponse(['error' => 'Formato no permitido. Usa JPG, PNG o WEBP.'], 400);
+            }
+            $dir = dirname(__DIR__, 2) . '/assets/uploads/login/';
+            asegurarDirectorio($dir);
+            $nombre = 'login_bg_' . time() . '.' . $ext;
+            if (!move_uploaded_file($_FILES['login_bg']['tmp_name'], $dir . $nombre)) {
+                jsonResponse(['error' => 'No se pudo guardar la imagen.'], 500);
+            }
+            $ruta = 'assets/uploads/login/' . $nombre;
+            $stmt = $db->prepare("
+                INSERT INTO app_settings (clave, valor, updated_at)
+                VALUES ('login_bg', :valor, NOW())
+                ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()
+            ");
+            $stmt->execute([':valor' => $ruta]);
+            jsonResponse(['ok' => true, 'login_bg' => $ruta]);
+
+        case 'login_logo_guardar':
+            if (!isset($_FILES['login_logo']) || $_FILES['login_logo']['error'] !== UPLOAD_ERR_OK) {
+                jsonResponse(['error' => 'No se recibio la imagen.'], 400);
+            }
+            $ext = strtolower(pathinfo($_FILES['login_logo']['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+                jsonResponse(['error' => 'Formato no permitido. Usa JPG, PNG o WEBP.'], 400);
+            }
+            $dir = dirname(__DIR__, 2) . '/assets/uploads/login/';
+            asegurarDirectorio($dir);
+            $nombre = 'login_logo_' . time() . '.' . $ext;
+            if (!move_uploaded_file($_FILES['login_logo']['tmp_name'], $dir . $nombre)) {
+                jsonResponse(['error' => 'No se pudo guardar la imagen.'], 500);
+            }
+            $ruta = 'assets/uploads/login/' . $nombre;
+            $stmt = $db->prepare("
+                INSERT INTO app_settings (clave, valor, updated_at)
+                VALUES ('login_logo', :valor, NOW())
+                ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()
+            ");
+            $stmt->execute([':valor' => $ruta]);
+            jsonResponse(['ok' => true, 'login_logo' => $ruta]);
+
+        case 'favicon_guardar':
+            if (!isset($_FILES['favicon']) || $_FILES['favicon']['error'] !== UPLOAD_ERR_OK) {
+                jsonResponse(['error' => 'No se recibio la imagen.'], 400);
+            }
+            $ext = strtolower(pathinfo($_FILES['favicon']['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, ['ico', 'png', 'svg', 'webp', 'jpg', 'jpeg'], true)) {
+                jsonResponse(['error' => 'Formato no permitido. Usa ICO, PNG, SVG o WEBP.'], 400);
+            }
+            $dir = dirname(__DIR__, 2) . '/assets/uploads/login/';
+            asegurarDirectorio($dir);
+            $nombre = 'favicon_' . time() . '.' . $ext;
+            if (!move_uploaded_file($_FILES['favicon']['tmp_name'], $dir . $nombre)) {
+                jsonResponse(['error' => 'No se pudo guardar la imagen.'], 500);
+            }
+            $ruta = 'assets/uploads/login/' . $nombre;
+            $stmt = $db->prepare("
+                INSERT INTO app_settings (clave, valor, updated_at)
+                VALUES ('favicon', :valor, NOW())
+                ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()
+            ");
+            $stmt->execute([':valor' => $ruta]);
+            jsonResponse(['ok' => true, 'favicon' => $ruta]);
+
+        case 'login_textos_guardar':
+            $nombre    = trim((string)($input['login_nombre'] ?? ''));
+            $subtitulo = trim((string)($input['login_subtitulo'] ?? ''));
+            if ($nombre === '') {
+                jsonResponse(['error' => 'El nombre no puede estar vacio.'], 400);
+            }
+            if (mb_strlen($nombre) > 60 || mb_strlen($subtitulo) > 80) {
+                jsonResponse(['error' => 'Texto demasiado largo.'], 400);
+            }
+            $stmt = $db->prepare("
+                INSERT INTO app_settings (clave, valor, updated_at)
+                VALUES (:clave, :valor, NOW())
+                ON CONFLICT (clave) DO UPDATE SET valor = EXCLUDED.valor, updated_at = NOW()
+            ");
+            $stmt->execute([':clave' => 'login_nombre', ':valor' => $nombre]);
+            $stmt->execute([':clave' => 'login_subtitulo', ':valor' => $subtitulo]);
+            jsonResponse(['ok' => true, 'login_nombre' => $nombre, 'login_subtitulo' => $subtitulo]);
+
         default:
             jsonResponse(['error' => 'Accion no reconocida.'], 400);
     }

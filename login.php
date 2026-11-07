@@ -13,6 +13,21 @@ $error = $_SESSION['login_error'] ?? '';
 $email_value = $_SESSION['login_email'] ?? '';
 unset($_SESSION['login_error'], $_SESSION['login_email']);
 
+// Personalización del login (Configuración → Personalización)
+$login_bg        = 'assets/iconos/fondo.png';
+$login_logo      = 'assets/iconos/logo.jpeg';
+$login_nombre    = APP_NAME;
+$login_subtitulo = 'Sistema de Gestion Industrial';
+$favicon         = '';
+try {
+    $__cfg = getDB()->query("SELECT clave, valor FROM app_settings")->fetchAll(PDO::FETCH_KEY_PAIR);
+    if (!empty($__cfg['login_bg']))        $login_bg        = $__cfg['login_bg'];
+    if (!empty($__cfg['login_logo']))      $login_logo      = $__cfg['login_logo'];
+    if (!empty($__cfg['login_nombre']))    $login_nombre    = $__cfg['login_nombre'];
+    if (!empty($__cfg['login_subtitulo'])) $login_subtitulo = $__cfg['login_subtitulo'];
+    if (!empty($__cfg['favicon']))         $favicon         = $__cfg['favicon'];
+} catch (\Throwable $e) {}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email    = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
@@ -79,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Iniciar sesiÃ³n â€” <?= APP_NAME ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <?php if ($favicon): ?>
+    <link rel="icon" href="<?= htmlspecialchars($favicon, ENT_QUOTES) ?>">
+    <?php endif; ?>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
@@ -88,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: flex;
             align-items: center;
             justify-content: center;
-            background: url('assets/iconos/fondo.png') center center / cover no-repeat fixed;
+            background: url('<?= htmlspecialchars($login_bg, ENT_QUOTES) ?>') center center / cover no-repeat fixed;
         }
         body::before {
             content: '';
@@ -137,10 +155,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-card">
 
         <div class="login-logo">
-            <img src="assets/iconos/logo.jpeg" alt="IndustriaMG"
+            <img src="<?= htmlspecialchars($login_logo, ENT_QUOTES) ?>" alt="<?= htmlspecialchars($login_nombre, ENT_QUOTES) ?>"
                  onerror="this.style.display='none'">
-            <h1><?= APP_NAME ?></h1>
-            <p>Sistema de Gestion Industrial</p>
+            <h1><?= htmlspecialchars($login_nombre) ?></h1>
+            <p><?= htmlspecialchars($login_subtitulo) ?></p>
         </div>
 
         <p class="login-section-label">Acceso al sistema</p>
