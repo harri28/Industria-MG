@@ -8,8 +8,9 @@ header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input  = json_decode(file_get_contents('php://input'), true) ?? [];
-    $action = $input['action'] ?? $action;
+    $raw   = file_get_contents('php://input');
+    $input = $raw ? (json_decode($raw, true) ?? []) : [];
+    $action = $input['action'] ?? $_POST['action'] ?? $action;
 } else {
     $input = $_GET;
 }
@@ -57,6 +58,27 @@ try { switch ($action) {
             $colores[] = ['nombre' => $cn, 'imagen' => ($c['imagen'] ?? null) ?: null];
         }
         $coloresJson = json_encode($colores, JSON_UNESCAPED_UNICODE);
+        // Normaliza especificaciones: [{titulo, descripcion, params:[{nombre,valor,unidad,descripcion}]}]
+        $specsRaw = $input['especificaciones'] ?? [];
+        if (is_string($specsRaw)) $specsRaw = json_decode($specsRaw, true) ?: [];
+        $specs = [];
+        foreach ((is_array($specsRaw) ? $specsRaw : []) as $g) {
+            $gt = trim((string)($g['titulo'] ?? ''));
+            if ($gt === '') continue;
+            $params = [];
+            foreach ((is_array($g['params'] ?? null) ? $g['params'] : []) as $p) {
+                $pn = trim((string)($p['nombre'] ?? ''));
+                if ($pn === '') continue;
+                $params[] = [
+                    'nombre'      => $pn,
+                    'valor'       => trim((string)($p['valor'] ?? '')),
+                    'unidad'      => trim((string)($p['unidad'] ?? '')),
+                    'descripcion' => trim((string)($p['descripcion'] ?? '')),
+                ];
+            }
+            $specs[] = ['titulo' => $gt, 'descripcion' => trim((string)($g['descripcion'] ?? '')), 'params' => $params];
+        }
+        $specsJson = json_encode($specs, JSON_UNESCAPED_UNICODE);
         $catDir = __DIR__ . '/../../assets/uploads/catalogo/';
         $id = 0;
         if (!empty($input['id'])) {
@@ -73,6 +95,7 @@ try { switch ($action) {
             $db->prepare("UPDATE catalogo_productos SET
                 nombre=:nom, descripcion=:desc, descripcion_corta=:dcorta,
                 categoria=:cat, precio_referencial=:precio, colores=:colores,
+                especificaciones=:specs,
                 publicado=:pub, destacado=:dest, orden=:orden
                 WHERE id=:id")->execute([
                 ':id'      => $id,
@@ -82,14 +105,15 @@ try { switch ($action) {
                 ':cat'     => ($input['categoria'] ?? null) ?: null,
                 ':precio'  => ($input['precio_referencial'] ?? null) ?: null,
                 ':colores' => $coloresJson,
+                ':specs'   => $specsJson,
                 ':pub'     => filter_var($input['publicado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
                 ':dest'    => filter_var($input['destacado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
                 ':orden'   => (int)($input['orden'] ?? 0),
             ]);
         } else {
             $stmt = $db->prepare("INSERT INTO catalogo_productos
-                (nombre, descripcion, descripcion_corta, categoria, precio_referencial, colores, publicado, destacado, orden)
-                VALUES (:nom, :desc, :dcorta, :cat, :precio, :colores, :pub, :dest, :orden) RETURNING id");
+                (nombre, descripcion, descripcion_corta, categoria, precio_referencial, colores, especificaciones, publicado, destacado, orden)
+                VALUES (:nom, :desc, :dcorta, :cat, :precio, :colores, :specs, :pub, :dest, :orden) RETURNING id");
             $stmt->execute([
                 ':nom'     => trim($input['nombre']),
                 ':desc'    => ($input['descripcion'] ?? null) ?: null,
@@ -97,6 +121,7 @@ try { switch ($action) {
                 ':cat'     => ($input['categoria'] ?? null) ?: null,
                 ':precio'  => ($input['precio_referencial'] ?? null) ?: null,
                 ':colores' => $coloresJson,
+                ':specs'   => $specsJson,
                 ':pub'     => filter_var($input['publicado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
                 ':dest'    => filter_var($input['destacado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
                 ':orden'   => (int)($input['orden'] ?? 0),
