@@ -64,9 +64,14 @@ $page_breadcrumb = $page_breadcrumb ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($page_title) ?> — <?= APP_NAME ?></title>
-    <link rel="stylesheet" href="<?= APP_BASE ?>assets/css/style.css">
+    <?php
+    // Cache-busting: la versión cambia cuando se edita el archivo, forzando recarga en el navegador
+    $css_ver = @filemtime(__DIR__ . '/../assets/css/style.css') ?: time();
+    $js_ver  = @filemtime(__DIR__ . '/../assets/js/main.js') ?: time();
+    ?>
+    <link rel="stylesheet" href="<?= APP_BASE ?>assets/css/style.css?v=<?= $css_ver ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="<?= APP_BASE ?>assets/js/main.js"></script>
+    <script src="<?= APP_BASE ?>assets/js/main.js?v=<?= $js_ver ?>"></script>
     <script>
     try { if (localStorage.getItem('sidebar_collapsed')==='1') document.documentElement.classList.add('sidebar-collapsed'); } catch(e){}
     function toggleSidebar(){
@@ -125,7 +130,7 @@ $page_breadcrumb = $page_breadcrumb ?? '';
         <a href="<?= APP_BASE ?>modules/inventarios/index.php"
            class="nav-item <?= $modulo_actual === 'inventarios' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-boxes-stacked"></i></span>
-            <span>Almacén</span>
+            <span>Inventario</span>
         </a>
         <a href="<?= APP_BASE ?>modules/compras/index.php"
            class="nav-item <?= $modulo_actual === 'compras' ? 'active' : '' ?>">

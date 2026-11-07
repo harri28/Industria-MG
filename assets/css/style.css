@@ -274,27 +274,47 @@ html.sidebar-collapsed .sidebar-footer > div:last-child { display: none; }
     margin-bottom: 22px;
 }
 .kpi-card {
+    position: relative;
+    overflow: hidden;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: var(--radius);
-    padding: 18px 20px;
-    display: flex; align-items: flex-start; gap: 14px;
+    padding: 18px 20px 18px 22px;
+    display: flex; align-items: center; gap: 15px;
     box-shadow: var(--card-shadow);
-    transition: box-shadow var(--transition), transform var(--transition);
+    transition: box-shadow var(--transition), transform var(--transition), border-color var(--transition);
 }
-.kpi-card:hover { box-shadow: var(--card-shadow-md); transform: translateY(-1px); }
+/* Barra de acento a la izquierda (color segun la variante del card) */
+.kpi-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+    width: 4px; background: var(--kpi-accent, transparent);
+}
+.kpi-card:hover {
+    box-shadow: var(--card-shadow-md);
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--kpi-accent, var(--card-border)) 40%, var(--card-border));
+}
+.kpi-card.blue   { --kpi-accent: #3b82f6; }
+.kpi-card.green  { --kpi-accent: var(--success); }
+.kpi-card.orange { --kpi-accent: var(--primary); }
+.kpi-card.red    { --kpi-accent: var(--danger); }
+.kpi-card.cyan   { --kpi-accent: var(--info); }
+.kpi-card.indigo { --kpi-accent: #6366f1; }
+.kpi-card.gray   { --kpi-accent: #94a3b8; }
 .kpi-icon {
-    width: 44px; height: 44px; border-radius: var(--radius);
+    width: 48px; height: 48px; border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem; flex-shrink: 0;
+    font-size: 1.2rem; flex-shrink: 0;
 }
 .kpi-icon.blue   { background: linear-gradient(135deg,#dbeafe,#eff6ff); color: #3b82f6; }
 .kpi-icon.green  { background: linear-gradient(135deg,#d1fae5,#ecfdf5); color: var(--success); }
 .kpi-icon.orange { background: linear-gradient(135deg,#fed7aa,#fff7ed); color: var(--primary); }
 .kpi-icon.red    { background: linear-gradient(135deg,#fecaca,#fef2f2); color: var(--danger); }
 .kpi-icon.cyan   { background: linear-gradient(135deg,#a5f3fc,#ecfeff); color: var(--info); }
-.kpi-value { font-size: 1.7rem; font-weight: 700; color: var(--text-primary); line-height: 1.1; letter-spacing: -.03em; }
-.kpi-label { font-size: .72rem; color: var(--text-secondary); margin-top: 3px; font-weight: 500; }
+.kpi-icon.indigo { background: linear-gradient(135deg,#e0e7ff,#eef2ff); color: #6366f1; }
+.kpi-icon.gray   { background: linear-gradient(135deg,#e2e8f0,#f1f5f9); color: var(--text-secondary); }
+.kpi-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); line-height: 1; letter-spacing: -.035em; }
+.kpi-label { font-size: .66rem; color: var(--text-muted); margin-top: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
 .kpi-sub   { font-size: .68rem; color: var(--text-muted); margin-top: 4px; }
 
 /* ============================================================
@@ -464,6 +484,11 @@ tbody tr:last-child td { border-bottom: none; }
 .form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 .form-row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
 textarea.form-control { resize: vertical; min-height: 80px; }
+/* NUNCA mostrar las flechas (spinners) de los inputs numéricos: el step corrompe
+   valores (p. ej. cantidad 10 → 10.001). Regla global, no quitar. Ver CLAUDE.md. */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 select.form-control {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%2394a3b8' d='M5 7L0 2h10z'/%3E%3C/svg%3E");

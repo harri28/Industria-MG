@@ -11,9 +11,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 psql -U postgres -c "CREATE DATABASE industria_mg;"
 psql -U postgres -d industria_mg -f database/schema.sql
-# Apply all migrations in order (001–032, gap at 031):
+# Apply all migrations in order (001–035, gap at 031 which is a .md note):
 psql -U postgres -d industria_mg -f database/migrations/001_proyecto_areas.sql
-# ... through 032_maquinarias_venta.sql
+# ... through 035_unidades_medida.sql
 ```
 
 Access: `http://localhost/industria_mg/`
@@ -49,6 +49,8 @@ Browser → PHP page (modules/<mod>/index.php) → includes header/footer
 - **`assets/js/main.js`** — Global utilities: `Toast`, `Modal`, `apiGet()`, `apiPost()`, `formatMoney()`, `formatDate()`, `badge()`, `initTabs()`
 - **`assets/vendor/`** — Locally bundled: jQuery 3.7.1, Select2, DataTables + Bootstrap 5 theme. Some modules use these via `<script src="../../assets/vendor/...">`.
 - **Font Awesome 6.5** — loaded via CDN in `header.php`; all icons use `fa fa-*` classes. No local copy.
+- **`mobile/produccion/index.php`** — Standalone mobile-optimized view of the production module (operator shop-floor use). It does not use the standard `header.php`/`footer.php` chrome; it hits the same `modules/produccion/api.php` endpoints.
+- **`AGENTS.md`** (repo root) — A stale Codex-oriented twin of this file. It predates the facturación/e-invoicing work and still lists migrations only through 020; treat this `CLAUDE.md` as authoritative.
 
 ### Module Status
 
@@ -68,7 +70,7 @@ Browser → PHP page (modules/<mod>/index.php) → includes header/footer
 | Préstamos | ✅ Complete | `modules/prestamos/index.php`, `api.php` |
 | Cuentas por Cobrar | ✅ Complete | `modules/cuentas_cobrar/index.php`, `api.php` (migration 023) |
 | Configuración | ⚠️ Partial | `modules/configuracion/index.php`, `api.php` (ubigeo resolver + empresa_emisora CRUD; UI settings not persisted) |
-| Cuentas por Pagar | ⚠️ Stub | `modules/cuentas_pagar/index.php` only (no api.php; shows "próximamente") |
+| Cuentas por Pagar | ✅ Complete | `modules/cuentas_pagar/index.php`, `api.php` (migration 033; uses `startAppSession()`) |
 
 ### Production Workflow (Producción Module)
 
@@ -110,9 +112,12 @@ Las tres tablas (`transformaciones`, `transformacion_inputs`, `transformacion_ou
 - **`comprobantes_electronicos`** / **`comprobante_detalles`** — Full e-invoice record including SUNAT response JSON, XML/CDR/PDF paths, QR, hash, SOAP payloads, and credit/debit note references (migrations 028, 029).
 - **`fe_*` catalog tables** — SUNAT lookup catalogs: `fe_tipos_documento`, `fe_tipos_documento_identidad`, `fe_unidades`, `fe_formas_pago`, `fe_tipos_operacion`, `fe_monedas`, `fe_tipos_afectacion_igv`, `fe_tipos_nota_credito`, `fe_tipos_nota_debito` (migrations 025, 026).
 - **`maquinarias`** — Now has `producto_id`, `precio_venta`, `costo_total`, `estado_venta`, `orden_venta_id`, `comprobante_electronico_id` — machines can be sold directly from the Ventas module (migration 032).
+- **`cuentas_pagar`** / **`cuentas_pagar_pagos`** — Accounts payable: supplier bills + payment records, FK `proveedor_id` with a denormalized `proveedor_nombre` copy for display after supplier deletion (migration 033).
+- **`unidades_medida`** — Catalog of units of measure for inventory (`unidad`, `kg`, `m`, `m2`, etc.), seeded by migration 035.
+- **`productos.ubicacion`** — Physical warehouse location string (e.g. "Rack A-3"), added by migration 034.
 - **`alertas`** — System-wide alerts (delay, low stock, warranty expiry).
 
-Schema migrations in `database/migrations/` (001–032, gap at 031) document all schema evolution after the base `schema.sql`.
+Schema migrations in `database/migrations/` (001–035, gap at 031 which is a `.md` design note) document all schema evolution after the base `schema.sql`.
 
 ### Database Naming Conventions
 - Tables: plural snake_case (`proyectos`, `proyecto_avances`)
@@ -202,6 +207,9 @@ The Ventas module generates SUNAT-compliant electronic documents (facturas, bole
 
 ## CSS Design Tokens
 Classic ERP look. Primary colors via CSS variables in `style.css`: `--sidebar-bg: #1a2c4e`, `--primary: #1d4ed8`. Status badge classes follow the pattern `badge-<estado>` (e.g. `badge-fabricacion`, `badge-retrasado`).
+
+### UI rule — NO number spinners (hard requirement)
+Native number-input spinner arrows (▲▼) are **disabled globally** in `style.css` and must stay disabled. The step buttons corrupt values — e.g. clicking the up arrow on a quantity turns `10` into `10.001` — which breaks downstream calculations (OC/SC totals, stock). Do **not** re-enable spinners, do not override `appearance: textfield` on `input[type=number]`, and do not step/round quantities into decimals. Quantities are entered by typing. This was requested explicitly by the user.
 
 ## Known Limitations
 - **Session user in APIs**: Older `api.php` files only `require_once 'database.php'` and never start the session, so `getUsuarioActual()` returns placeholder defaults and audit logs record null user IDs. New files should use `startAppSession()` from `config/session.php`.

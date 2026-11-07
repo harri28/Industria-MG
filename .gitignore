@@ -31,6 +31,9 @@ Thumbs.db
 # Config local de Claude Code (permisos/rutas por maquina, puede contener credenciales)
 .claude/
 
+# Artefactos de Spec-Driven Development (specs/planes/tareas de trabajo, no codigo)
+.specify/
+
 # Temporales
 *.tmp
 *.tmp.sql
