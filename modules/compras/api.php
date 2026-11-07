@@ -163,10 +163,13 @@ try { switch ($action) {
 
     case 'solicitud_obtener':
         $stmt = $db->prepare("
-            SELECT sc.*, u.nombre AS solicitante_nombre, p.nombre AS proyecto_nombre
+            SELECT sc.*, u.nombre AS solicitante_nombre, p.nombre AS proyecto_nombre,
+                   pv.razon_social AS proveedor_razon_social, pv.ruc AS proveedor_ruc,
+                   pv.telefono AS proveedor_telefono, pv.direccion AS proveedor_direccion
             FROM solicitudes_compra sc
             LEFT JOIN usuarios u ON u.id = sc.solicitante_id
             LEFT JOIN proyectos p ON p.id = sc.proyecto_id
+            LEFT JOIN proveedores pv ON pv.id = sc.proveedor_id
             WHERE sc.id=:id");
         $stmt->execute([':id' => (int)$input['id']]);
         $sc = $stmt->fetch();
@@ -180,6 +183,39 @@ try { switch ($action) {
         $sc['detalles'] = $stmt2->fetchAll();
         jsonResponse(['ok' => true, 'solicitud' => $sc]);
 
+    case 'proveedor_por_ruc':
+        $doc = trim($input['ruc'] ?? '');
+        if ($doc === '') jsonResponse(['error' => 'Ingrese RUC o DNI.'], 400);
+        $stmt = $db->prepare("
+            SELECT id, razon_social, ruc, telefono, direccion, email, contacto_nombre
+            FROM proveedores
+            WHERE activo AND ruc = :doc
+            ORDER BY id LIMIT 1");
+        $stmt->execute([':doc' => $doc]);
+        $prov = $stmt->fetch();
+        if (!$prov) jsonResponse(['ok' => false, 'error' => 'No existe un proveedor registrado con ese RUC/DNI.']);
+        jsonResponse(['ok' => true, 'proveedor' => $prov]);
+
+    case 'empresa_datos':
+        $emp = $db->query("SELECT razon_social, nombre_comercial, ruc, direccion_fiscal, telefono, email, logo_path
+                           FROM empresa_emisora ORDER BY id LIMIT 1")->fetch();
+        jsonResponse(['ok' => true, 'empresa' => $emp ?: null]);
+
+    case 'productos_bajo_minimo':
+        $stmt = $db->query("
+            SELECT id, codigo, nombre, unidad, stock_actual, stock_minimo
+            FROM productos
+            WHERE activo AND stock_minimo > 0 AND stock_actual <= stock_minimo
+            ORDER BY nombre");
+        jsonResponse(['ok' => true, 'productos' => $stmt->fetchAll()]);
+
+    case 'solicitud_siguiente_numero':
+        $year = date('Y');
+        $stmt = $db->prepare("SELECT COUNT(*) FROM solicitudes_compra WHERE numero LIKE :p");
+        $stmt->execute([':p' => "SC-{$year}%"]);
+        $next = (int)$stmt->fetchColumn() + 1;
+        jsonResponse(['ok' => true, 'numero' => 'SC-' . $year . str_pad($next, 4, '0', STR_PAD_LEFT)]);
+
     case 'solicitud_guardar':
         $detalles = $input['detalles'] ?? [];
         if (empty($detalles)) jsonResponse(['error' => 'Debe agregar al menos un ítem.'], 400);
@@ -188,21 +224,23 @@ try { switch ($action) {
         if (!empty($input['id'])) {
             $id = (int)$input['id'];
             $db->prepare("UPDATE solicitudes_compra SET
-                proyecto_id=:pid, observaciones=:obs
+                proyecto_id=:pid, proveedor_id=:prov, observaciones=:obs
                 WHERE id=:id")->execute([
-                ':id'  => $id,
-                ':pid' => ($input['proyecto_id'] ?? null) ?: null,
-                ':obs' => ($input['observaciones'] ?? null) ?: null,
+                ':id'   => $id,
+                ':pid'  => ($input['proyecto_id'] ?? null) ?: null,
+                ':prov' => ($input['proveedor_id'] ?? null) ?: null,
+                ':obs'  => ($input['observaciones'] ?? null) ?: null,
             ]);
             $db->prepare("DELETE FROM solicitud_detalles WHERE solicitud_id=:id")->execute([':id' => $id]);
         } else {
             $numero = generarCodigo('SC-', 'solicitudes_compra', 'numero');
             $stmt = $db->prepare("INSERT INTO solicitudes_compra
-                (numero, proyecto_id, tipo, solicitante_id, estado, observaciones)
-                VALUES (:num, :pid, :tipo, :uid, 'pendiente', :obs) RETURNING id");
+                (numero, proyecto_id, proveedor_id, tipo, solicitante_id, estado, observaciones)
+                VALUES (:num, :pid, :prov, :tipo, :uid, 'pendiente', :obs) RETURNING id");
             $stmt->execute([
                 ':num'  => $numero,
                 ':pid'  => ($input['proyecto_id'] ?? null) ?: null,
+                ':prov' => ($input['proveedor_id'] ?? null) ?: null,
                 ':tipo' => ($input['tipo'] ?? 'manual') ?: 'manual',
                 ':uid'  => null,
                 ':obs'  => ($input['observaciones'] ?? null) ?: null,
@@ -221,7 +259,7 @@ try { switch ($action) {
             ]);
         }
         $db->commit();
-        jsonResponse(['ok' => true, 'id' => $id]);
+        jsonResponse(['ok' => true, 'id' => $id, 'numero' => $numero ?? null]);
 
     case 'solicitud_estado':
         $id     = (int)($input['id'] ?? 0);
@@ -273,34 +311,48 @@ try { switch ($action) {
         $oc['detalles'] = $stmt2->fetchAll();
         jsonResponse(['ok' => true, 'oc' => $oc]);
 
+    case 'oc_siguiente_numero':
+        $year = date('Y');
+        $stmt = $db->prepare("SELECT COUNT(*) FROM ordenes_compra WHERE numero LIKE :p");
+        $stmt->execute([':p' => "OC-{$year}%"]);
+        $next = (int)$stmt->fetchColumn() + 1;
+        jsonResponse(['ok' => true, 'numero' => 'OC-' . $year . str_pad($next, 4, '0', STR_PAD_LEFT)]);
+
     case 'oc_guardar':
         $detalles = $input['detalles'] ?? [];
         if (empty($detalles)) jsonResponse(['error' => 'Debe agregar al menos un ítem.'], 400);
         if (empty($input['proveedor_id'])) jsonResponse(['error' => 'Debe seleccionar un proveedor.'], 400);
 
-        // Calcular totales
+        $tipo_pago = in_array(($input['tipo_pago'] ?? 'efectivo'), ['efectivo', 'transferencia', 'credito'])
+            ? $input['tipo_pago'] : 'efectivo';
+        $dias_credito = $tipo_pago === 'credito' ? max(0, (int)($input['dias_credito'] ?? 0)) : 0;
+        $costo_envio  = round((float)($input['costo_envio'] ?? 0), 2);
+
+        // Calcular totales (sin IGV: Total = Subtotal + Costo de envío)
         $subtotal = 0;
         foreach ($detalles as $d) {
-            $qty = (float)$d['cantidad'];
-            $pu  = (float)$d['precio_unitario'];
-            $dto = (float)($d['descuento'] ?? 0);
-            $subtotal += $qty * $pu * (1 - $dto / 100);
+            $subtotal += (float)$d['cantidad'] * (float)$d['precio_unitario'];
         }
-        $igv   = round($subtotal * IGV, 2);
-        $total = $subtotal + $igv;
+        $subtotal = round($subtotal, 2);
+        $total    = $subtotal + $costo_envio;
 
         $db->beginTransaction();
-        if (!empty($input['id'])) {
+        $es_nueva = empty($input['id']);
+        if (!$es_nueva) {
             $id = (int)$input['id'];
             $db->prepare("UPDATE ordenes_compra SET
                 proveedor_id=:prov, fecha_entrega_estimada=:fed,
-                subtotal=:sub, igv=:igv, total=:total, observaciones=:obs
+                tipo_pago=:tp, dias_credito=:dc, numero_factura=:nf, costo_envio=:env,
+                subtotal=:sub, igv=0, total=:total, observaciones=:obs
                 WHERE id=:id")->execute([
                 ':id'   => $id,
                 ':prov' => (int)$input['proveedor_id'],
                 ':fed'  => ($input['fecha_entrega_estimada'] ?? null) ?: null,
+                ':tp'   => $tipo_pago,
+                ':dc'   => $dias_credito,
+                ':nf'   => ($input['numero_factura'] ?? null) ?: null,
+                ':env'  => $costo_envio,
                 ':sub'  => $subtotal,
-                ':igv'  => $igv,
                 ':total'=> $total,
                 ':obs'  => ($input['observaciones'] ?? null) ?: null,
             ]);
@@ -309,16 +361,21 @@ try { switch ($action) {
             $numero = generarCodigo('OC-', 'ordenes_compra', 'numero');
             $stmt = $db->prepare("INSERT INTO ordenes_compra
                 (numero, proveedor_id, solicitud_id, estado, fecha_entrega_estimada,
+                 tipo_pago, dias_credito, numero_factura, costo_envio,
                  subtotal, igv, total, observaciones, usuario_id)
-                VALUES (:num, :prov, :sc, 'emitida', :fed, :sub, :igv, :total, :obs, :uid)
+                VALUES (:num, :prov, :sc, 'emitida', :fed, :tp, :dc, :nf, :env,
+                        :sub, 0, :total, :obs, :uid)
                 RETURNING id");
             $stmt->execute([
                 ':num'  => $numero,
                 ':prov' => (int)$input['proveedor_id'],
                 ':sc'   => ($input['solicitud_id'] ?? null) ?: null,
                 ':fed'  => ($input['fecha_entrega_estimada'] ?? null) ?: null,
+                ':tp'   => $tipo_pago,
+                ':dc'   => $dias_credito,
+                ':nf'   => ($input['numero_factura'] ?? null) ?: null,
+                ':env'  => $costo_envio,
                 ':sub'  => $subtotal,
-                ':igv'  => $igv,
                 ':total'=> $total,
                 ':obs'  => ($input['observaciones'] ?? null) ?: null,
                 ':uid'  => null,
@@ -328,18 +385,53 @@ try { switch ($action) {
         foreach ($detalles as $d) {
             $qty = (float)$d['cantidad'];
             $pu  = (float)$d['precio_unitario'];
-            $dto = (float)($d['descuento'] ?? 0);
-            $sub = $qty * $pu * (1 - $dto / 100);
+            $sub = round($qty * $pu, 2);
             $db->prepare("INSERT INTO oc_detalles
-                (oc_id, producto_id, cantidad, precio_unitario, descuento, subtotal)
-                VALUES (:oc, :pid, :qty, :pu, :dto, :sub)")->execute([
+                (oc_id, producto_id, cantidad, precio_unitario, descuento, subtotal, descripcion)
+                VALUES (:oc, :pid, :qty, :pu, 0, :sub, :desc)")->execute([
                 ':oc'  => $id,
                 ':pid' => (int)$d['producto_id'],
                 ':qty' => $qty,
                 ':pu'  => $pu,
-                ':dto' => $dto,
                 ':sub' => $sub,
+                ':desc'=> ($d['descripcion'] ?? null) ?: null,
             ]);
+
+            // Aumentar stock del producto (entrada Kardex) al registrar la OC
+            if ($es_nueva && $qty > 0) {
+                $saldo = $db->prepare("SELECT stock_actual, precio_promedio FROM productos WHERE id=:id FOR UPDATE");
+                $saldo->execute([':id' => (int)$d['producto_id']]);
+                $pr = $saldo->fetch();
+                if ($pr) {
+                    $stock_ant   = (float)$pr['stock_actual'];
+                    $pp_ant      = (float)$pr['precio_promedio'];
+                    $nuevo_stock = $stock_ant + $qty;
+                    $nuevo_pp    = $nuevo_stock > 0
+                        ? (($stock_ant * $pp_ant) + ($qty * $pu)) / $nuevo_stock
+                        : $pu;
+                    $db->prepare("UPDATE productos SET
+                        stock_actual=:sa, precio_promedio=:pp, precio_compra=:pc, updated_at=NOW()
+                        WHERE id=:id")->execute([
+                        ':sa' => $nuevo_stock,
+                        ':pp' => $nuevo_pp,
+                        ':pc' => $pu,
+                        ':id' => (int)$d['producto_id'],
+                    ]);
+                    $db->prepare("INSERT INTO kardex
+                        (producto_id, tipo, referencia_tipo, referencia_id,
+                         cantidad, precio_unitario, saldo_cantidad, saldo_valor, usuario_id, observaciones)
+                        VALUES (:pid,'entrada','orden_compra',:ref,:qty,:pu,:sq,:sv,:uid,:obs)")->execute([
+                        ':pid' => (int)$d['producto_id'],
+                        ':ref' => $id,
+                        ':qty' => $qty,
+                        ':pu'  => $pu,
+                        ':sq'  => $nuevo_stock,
+                        ':sv'  => $nuevo_stock * $nuevo_pp,
+                        ':uid' => null,
+                        ':obs' => "Orden de compra " . ($numero ?? $id),
+                    ]);
+                }
+            }
         }
         // Marcar SC como procesada si viene de SC
         if (!empty($input['solicitud_id'])) {
@@ -546,7 +638,7 @@ try { switch ($action) {
     // ================================================================
     case 'combos':
         $proveedores = $db->query("SELECT id, razon_social FROM proveedores WHERE activo ORDER BY razon_social")->fetchAll();
-        $productos   = $db->query("SELECT id, codigo, nombre, unidad, precio_promedio FROM productos WHERE activo ORDER BY nombre")->fetchAll();
+        $productos   = $db->query("SELECT id, codigo, nombre, unidad, precio_promedio, codigo_barras, stock_actual, stock_minimo FROM productos WHERE activo ORDER BY nombre")->fetchAll();
         $proyectos   = $db->query("SELECT id, codigo, nombre FROM proyectos WHERE activo ORDER BY nombre")->fetchAll();
         $ocs_abiertas = $db->query("
             SELECT oc.id, oc.numero, p.razon_social AS proveedor_nombre
