@@ -214,6 +214,17 @@ html.sidebar-collapsed .sidebar-footer > div:last-child { display: none; }
     font-size: 1rem; font-weight: 700;
     color: var(--text-primary); letter-spacing: -.02em;
 }
+.dashboard-notice {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #d9f99d;
+    color: #59634d;
+    font-size: .68rem;
+    line-height: 1.35;
+    font-weight: 500;
+}
 .topbar-breadcrumb {
     font-size: .75rem; color: var(--text-muted);
     display: flex; align-items: center; gap: 4px; margin-top: 1px;
