@@ -1,9 +1,33 @@
-# ARQUITECTURA MVC — Feature "Estante" (Inventario)
+# ARQUITECTURA MVC — IndustriaMG
 
-> Documento de arquitectura para la funcionalidad **Estante / Ubicación visual de productos**.
-> El resto del sistema IndustriaMG **no es MVC** (usa `modules/<mod>/index.php` + `api.php` con
-> PDO inline). Esta feature introduce un **MVC localizado** que **convive** con ese estilo sin
-> reescribir nada existente. Ver `CLAUDE.md` para la arquitectura global.
+> El sistema se está migrando a **MVC de forma incremental, módulo por módulo** (Nivel
+> Model + Controller; la `index.php` sigue siendo la Vista). El resto de módulos aún usan el
+> estilo plano (`api.php` con PDO inline). Ver `CLAUDE.md` para la arquitectura global.
+
+## Estado de la migración
+- **Inventario** — ✅ migrado (2026-11). `api.php` es un router delgado que delega en
+  `modules/inventarios/mvc/controllers/InventarioController.php` + `mvc/models/*`
+  (`Producto`, `Kardex`, `Categoria`, `UnidadMedida`, `Catalogo`). El sub-feature **Estante**
+  (`estante/`) ya era MVC y se conserva. La importación (`import/importador.php`) se mantiene.
+- Resto de módulos — pendientes.
+
+**Patrón por módulo:**
+```
+modules/<mod>/
+├── index.php                         ← Vista (página; HTML + su JS)
+├── api.php                           ← Router delgado: sesión/permisos → delega al controlador
+└── mvc/
+    ├── controllers/<Mod>Controller.php   ← 1 acción = 1 método; responde jsonResponse()
+    └── models/<Entidad>.php              ← TODO el SQL/PDO + reglas de negocio
+```
+Regla de oro: **comportamiento idéntico** en cada paso; solo se reorganiza dónde vive el código.
+
+---
+
+## Anexo — Feature "Estante" (sub-módulo de Inventario)
+
+> Documento original de la funcionalidad **Estante / Ubicación visual de productos**, el primer
+> MVC localizado del sistema (sirvió de plantilla para migrar el módulo completo).
 
 ---
 

@@ -27,6 +27,7 @@ elseif (strpos($uri, '/cuentas_cobrar') !== false) $modulo_actual = 'cuentas_cob
 elseif (strpos($uri, '/cuentas_pagar') !== false) $modulo_actual = 'cuentas_pagar';
 elseif (strpos($uri, '/prestamos')     !== false) $modulo_actual = 'prestamos';
 elseif (strpos($uri, '/caja')          !== false) $modulo_actual = 'caja';
+elseif (strpos($uri, '/facturacion')   !== false) $modulo_actual = 'facturacion';
 elseif (strpos($uri, '/reportes')      !== false) $modulo_actual = 'reportes';
 elseif (strpos($uri, '/seguridad')     !== false) $modulo_actual = 'seguridad';
 elseif (strpos($uri, '/configuracion') !== false) $modulo_actual = 'configuracion';
@@ -227,6 +228,11 @@ $page_breadcrumb = $page_breadcrumb ?? '';
            class="nav-item <?= $modulo_actual === 'reportes' ? 'active' : '' ?>">
             <span class="nav-icon"><i class="fa fa-chart-bar"></i></span>
             <span>Reportes</span>
+        </a>
+        <a href="<?= APP_BASE ?>modules/facturacion/index.php"
+           class="nav-item <?= $modulo_actual === 'facturacion' ? 'active' : '' ?>">
+            <span class="nav-icon"><i class="fa fa-file-invoice"></i></span>
+            <span>Facturacion</span>
         </a>
 
         <!-- SISTEMA -->

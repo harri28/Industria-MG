@@ -194,6 +194,122 @@ try {
 
             jsonResponse(['ok' => true, 'logo_path' => $logoPath, 'certificate_path' => $certificatePath]);
 
+        case 'empresa_guardar_datos':
+            $empresa = $db->query("SELECT id, logo_path FROM empresa_emisora ORDER BY id LIMIT 1")->fetch();
+            if (!$empresa) {
+                jsonResponse(['error' => 'No existe registro base de empresa emisora.'], 400);
+            }
+            $logoPath = $empresa['logo_path'] ?? null;
+            $ubigeo = trim((string)($input['ubigeo'] ?? ''));
+            $departamento = '';
+            $provincia = '';
+            $distrito = '';
+            if ($ubigeo !== '') {
+                if (!preg_match('/^\d{6}$/', $ubigeo)) {
+                    jsonResponse(['error' => 'El ubigeo debe tener 6 digitos.'], 400);
+                }
+                $ubigeoStmt = $db->prepare("
+                    SELECT d.nombre AS distrito, p.nombre AS provincia, dep.nombre AS departamento
+                    FROM public.ubigeo_distritos d
+                    INNER JOIN public.ubigeo_provincias p   ON p.codigo = d.provincia_codigo
+                    INNER JOIN public.ubigeo_departamentos dep ON dep.codigo = d.departamento_codigo
+                    WHERE d.codigo = :codigo LIMIT 1
+                ");
+                $ubigeoStmt->execute([':codigo' => $ubigeo]);
+                $ubigeoInfo = $ubigeoStmt->fetch();
+                if (!$ubigeoInfo) {
+                    jsonResponse(['error' => 'El ubigeo no existe en el catalogo cargado.'], 400);
+                }
+                $departamento = $ubigeoInfo['departamento'];
+                $provincia = $ubigeoInfo['provincia'];
+                $distrito = $ubigeoInfo['distrito'];
+            }
+            if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
+                $logoDir = dirname(__DIR__, 2) . '/assets/uploads/empresa/';
+                asegurarDirectorio($logoDir);
+                $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
+                $logoName = 'logo_empresa_' . time() . '.' . $ext;
+                move_uploaded_file($_FILES['logo']['tmp_name'], $logoDir . $logoName);
+                $logoPath = 'assets/uploads/empresa/' . $logoName;
+            }
+            $stmt = $db->prepare("
+                UPDATE empresa_emisora SET
+                    razon_social = :razon_social,
+                    nombre_comercial = :nombre_comercial,
+                    ruc = :ruc,
+                    email = :email,
+                    telefono = :telefono,
+                    direccion_fiscal = :direccion_fiscal,
+                    codigo_pais = :codigo_pais,
+                    ubigeo = :ubigeo,
+                    departamento = :departamento,
+                    provincia = :provincia,
+                    distrito = :distrito,
+                    tax_enabled = :tax_enabled,
+                    logo_path = :logo_path,
+                    whatsapp_instance = :whatsapp_instance,
+                    updated_at = NOW()
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                ':id' => (int)$empresa['id'],
+                ':razon_social' => trim((string)($input['razon_social'] ?? '')),
+                ':nombre_comercial' => ($input['nombre_comercial'] ?? null) ?: null,
+                ':ruc' => ($input['ruc'] ?? null) ?: null,
+                ':email' => ($input['email'] ?? null) ?: null,
+                ':telefono' => ($input['telefono'] ?? null) ?: null,
+                ':direccion_fiscal' => ($input['direccion_fiscal'] ?? null) ?: null,
+                ':codigo_pais' => ($input['codigo_pais'] ?? 'PE') ?: 'PE',
+                ':ubigeo' => $ubigeo ?: null,
+                ':departamento' => $departamento ?: null,
+                ':provincia' => $provincia ?: null,
+                ':distrito' => $distrito ?: null,
+                ':tax_enabled' => (int)filter_var($input['tax_enabled'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                ':logo_path' => $logoPath,
+                ':whatsapp_instance' => ($input['whatsapp_instance'] ?? null) ?: null,
+            ]);
+            jsonResponse(['ok' => true, 'logo_path' => $logoPath]);
+
+        case 'empresa_guardar_sunat':
+            $empresa = $db->query("SELECT id, certificate_path FROM empresa_emisora ORDER BY id LIMIT 1")->fetch();
+            if (!$empresa) {
+                jsonResponse(['error' => 'No existe registro base de empresa emisora.'], 400);
+            }
+            $certificatePath = $empresa['certificate_path'] ?? null;
+            if (isset($_FILES['certificado']) && $_FILES['certificado']['error'] === UPLOAD_ERR_OK) {
+                $certDir = dirname(__DIR__, 2) . '/facturacion/certs/';
+                asegurarDirectorio($certDir);
+                $ext = strtolower(pathinfo($_FILES['certificado']['name'], PATHINFO_EXTENSION));
+                $certName = 'empresa_certificado.' . $ext;
+                move_uploaded_file($_FILES['certificado']['tmp_name'], $certDir . $certName);
+                $certificatePath = 'facturacion/certs/' . $certName;
+            }
+            $stmt = $db->prepare("
+                UPDATE empresa_emisora SET
+                    sunat_server = :sunat_server,
+                    sunat_username = :sunat_username,
+                    sunat_password = :sunat_password,
+                    gre_client_id = :gre_client_id,
+                    gre_client_secret = :gre_client_secret,
+                    certificate_path = :certificate_path,
+                    certificate_password = :certificate_password,
+                    certificate_expires_at = :certificate_expires_at,
+                    updated_at = NOW()
+                WHERE id = :id
+            ");
+            $stmt->execute([
+                ':id' => (int)$empresa['id'],
+                ':sunat_server' => ($input['sunat_server'] ?? 'beta') ?: 'beta',
+                ':sunat_username' => ($input['sunat_username'] ?? null) ?: null,
+                ':sunat_password' => ($input['sunat_password'] ?? null) ?: null,
+                ':gre_client_id' => ($input['gre_client_id'] ?? null) ?: null,
+                ':gre_client_secret' => ($input['gre_client_secret'] ?? null) ?: null,
+                ':certificate_path' => $certificatePath,
+                ':certificate_password' => ($input['certificate_password'] ?? null) ?: null,
+                ':certificate_expires_at' => ($input['certificate_expires_at'] ?? null) ?: null,
+            ]);
+            jsonResponse(['ok' => true, 'certificate_path' => $certificatePath]);
+
         case 'ajustes_obtener':
             $ajustes = $db->query("SELECT clave, valor FROM app_settings")->fetchAll(PDO::FETCH_KEY_PAIR);
             jsonResponse(['ok' => true, 'ajustes' => $ajustes]);

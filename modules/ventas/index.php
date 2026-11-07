@@ -4,7 +4,8 @@ $page_breadcrumb = '<span>Operaciones</span> <span>></span> Ventas';
 require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 $tecnicos = $db->query("SELECT id, nombre FROM usuarios WHERE activo ORDER BY nombre")->fetchAll();
-$empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccion_fiscal, telefono FROM empresa_emisora WHERE activo ORDER BY id LIMIT 1")->fetch() ?: [];
+$empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccion_fiscal, telefono, tax_enabled FROM empresa_emisora WHERE activo ORDER BY id LIMIT 1")->fetch() ?: [];
+$taxEnabledVenta = array_key_exists('tax_enabled', $empresaVenta) ? filter_var($empresaVenta['tax_enabled'], FILTER_VALIDATE_BOOLEAN) : true;
 ?>
 
 <link rel="stylesheet" href="../../assets/vendor/select2/select2.min.css">
@@ -131,6 +132,13 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
                 <div class="card-header">
                     <span class="card-title"><i class="fa fa-search"></i> Buscar Producto de Inventario</span>
                 </div>
+                <style>
+                .venta-chip{border:1px solid var(--border);background:#fff;color:var(--text-secondary);padding:5px 13px;border-radius:999px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s}
+                .venta-chip:hover{border-color:var(--primary);color:var(--primary)}
+                .venta-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+                .venta-card{border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;background:#fff;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,box-shadow .15s}
+                .venta-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+                </style>
                 <div style="padding:14px 16px">
                     <div class="search-box" style="margin-bottom:10px;width:100%;max-width:none">
                         <span class="icon"><i class="fa fa-search"></i></span>
@@ -138,7 +146,16 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
                                style="width:100%;max-width:none"
                                placeholder="Codigo o nombre del producto..." oninput="filtrarProductosVenta()">
                     </div>
-                    <div id="ventaResultados" style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:#fff">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                        <button type="button" class="venta-chip active" data-tipo="todos" onclick="setFiltroVenta('todos',this)">Todos</button>
+                        <button type="button" class="venta-chip" data-tipo="repuesto" onclick="setFiltroVenta('repuesto',this)">Repuestos</button>
+                        <button type="button" class="venta-chip" data-tipo="maquinaria" onclick="setFiltroVenta('maquinaria',this)">Maquinarias</button>
+                        <button type="button" class="venta-chip" data-tipo="servicio" onclick="setFiltroVenta('servicio',this)">Servicios</button>
+                        <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-secondary);cursor:pointer;white-space:nowrap">
+                            <input type="checkbox" id="ventaMostrarMateriales" onchange="filtrarProductosVenta()"> Mostrar materiales
+                        </label>
+                    </div>
+                    <div id="ventaResultados" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:#fff;padding:10px">
                         <div class="text-center text-muted" style="padding:14px;font-size:.85rem">Cargando productos...</div>
                     </div>
                 </div>
@@ -527,11 +544,25 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
             <input type="hidden" id="maqId">
             <div class="form-row cols-2">
                 <div class="form-group" style="grid-column:span 2">
-                    <label class="form-label">Cliente</label>
-                    <select class="form-control" id="maqCliente"></select>
+                    <label class="form-label">Modelo (del catálogo) *</label>
+                    <select class="form-control" id="maqCatalogo" onchange="onMaqCatalogoChange()"></select>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Color</label>
+                    <select class="form-control" id="maqColor" onchange="onMaqColorChange()"><option value="">—</option></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Vista</label>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <div style="width:60px;height:46px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto">
+                            <img id="maqImgPreview" style="display:none;width:100%;height:100%;object-fit:cover">
+                            <i id="maqImgIcon" class="fa fa-image" style="color:#cbd5e1"></i>
+                        </div>
+                        <span class="text-xs text-muted">Cambia con el color</span>
+                    </div>
+                </div>
+                <input type="hidden" id="maqModelo">
                 <div class="form-group"><label class="form-label">Codigo Interno</label><input type="text" class="form-control" id="maqCodigo"></div>
-                <div class="form-group"><label class="form-label">Modelo *</label><input type="text" class="form-control" id="maqModelo"></div>
                 <div class="form-group"><label class="form-label">Nro. de Serie</label><input type="text" class="form-control" id="maqSerie"></div>
                 <div class="form-group"><label class="form-label">Costo total (S/)</label><input type="number" step="0.01" min="0" class="form-control" id="maqCosto" value="0.00"></div>
                 <div class="form-group"><label class="form-label">Precio venta (S/)</label><input type="number" step="0.01" min="0" class="form-control" id="maqPrecio" value="0.00"></div>
@@ -544,6 +575,12 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
                 <div class="form-group"><label class="form-label">Fecha de Venta</label><input type="date" class="form-control" id="maqFechaVenta"></div>
                 <div class="form-group" style="grid-column:span 2"><label class="form-label">Garantia (meses)</label>
                     <input type="number" class="form-control" id="maqGarantia" value="12" min="0">
+                </div>
+                <div class="form-group" style="grid-column:span 2">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem">
+                        <input type="checkbox" id="maqDisponibleSiempre">
+                        Disponible siempre (fabricada a pedido, no controla stock en Ventas)
+                    </label>
                 </div>
                 <div class="form-group" style="grid-column:span 2"><label class="form-label">Descripcion</label><textarea class="form-control" id="maqDesc" rows="2"></textarea></div>
             </div>
@@ -877,6 +914,7 @@ $empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccio
 <script src="../../assets/vendor/datatables/dataTables.bootstrap5.min.js"></script>
 <script>
 const BASE = 'api.php';
+const TAX_ENABLED = <?= $taxEnabledVenta ? 'true' : 'false' ?>;
 const EMPRESA_VENTA = <?= json_encode([
     'nombre' => $empresaVenta['nombre_comercial'] ?: ($empresaVenta['razon_social'] ?? 'IndustriaMG'),
     'razon_social' => $empresaVenta['razon_social'] ?? 'IndustriaMG',
@@ -918,19 +956,40 @@ async function cargarProductosVenta() {
     try {
         const d = await apiGet(`${BASE}?action=productos_listar_venta`);
         productosVenta = d.productos || [];
-        renderProductosVenta(productosVenta.slice(0, 30));
+        filtrarProductosVenta();
     } catch(e) {
         document.getElementById('ventaResultados').innerHTML =
             '<div class="text-center" style="padding:12px;color:var(--danger);font-size:.85rem">Error al cargar productos</div>';
     }
 }
 
+let ventaFiltroTipo = 'todos';
+
+function clasificarItemVenta(p) {
+    const pt = (p.product_type || '').toLowerCase();
+    if (pt === 'machine') return 'maquinaria';
+    if (pt === 'service' || (p.unidad_codigo || '').toLowerCase() === 'zz' || (p.unidad || '').toLowerCase() === 'servicio') return 'servicio';
+    if (normalizarBooleano(p.es_repuesto)) return 'repuesto';
+    return 'material';
+}
+
+function setFiltroVenta(tipo, btn) {
+    ventaFiltroTipo = tipo;
+    document.querySelectorAll('.venta-chip').forEach(c => c.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    filtrarProductosVenta();
+}
+
 function filtrarProductosVenta() {
     const q = document.getElementById('ventaSearch').value.trim().toLowerCase();
-    const lista = q
-        ? productosVenta.filter(p => p.nombre.toLowerCase().includes(q) || p.codigo.toLowerCase().includes(q))
-        : productosVenta;
-    renderProductosVenta(lista.slice(0, 40));
+    const mostrarMat = document.getElementById('ventaMostrarMateriales')?.checked;
+    let lista = productosVenta.filter(p => {
+        const t = clasificarItemVenta(p);
+        if (ventaFiltroTipo === 'todos') return t !== 'material' || mostrarMat;
+        return t === ventaFiltroTipo;
+    });
+    if (q) lista = lista.filter(p => p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q));
+    renderProductosVenta(lista.slice(0, 60));
 }
 
 function renderProductosVenta(lista) {
@@ -939,29 +998,33 @@ function renderProductosVenta(lista) {
         el.innerHTML = '<div class="text-center text-muted" style="padding:14px;font-size:.85rem">Sin resultados</div>';
         return;
     }
-    el.innerHTML = lista.map(p => {
-        const tipoProducto = (p.product_type || '').toLowerCase();
-        const esServicio = tipoProducto === 'service' || (p.unidad_codigo || '').toLowerCase() === 'zz' || (p.unidad || '').toLowerCase() === 'servicio';
-        const esMaquinaria = tipoProducto === 'machine';
-        const sinStock = !esServicio && parseFloat(p.stock_actual) <= 0;
-        const badgeLabel = esServicio ? 'Servicio' : (esMaquinaria ? 'Maquinaria' : (p.es_repuesto ? 'Repuesto' : 'Material'));
-        const badgeBg = esServicio ? '#fff7ed' : (esMaquinaria ? '#fef3c7' : (p.es_repuesto ? '#f0fdf4' : '#eff6ff'));
-        const badgeColor = esServicio ? '#ea580c' : (esMaquinaria ? '#b45309' : (p.es_repuesto ? '#16a34a' : '#2563eb'));
-        return `<div style="display:flex;align-items:center;gap:12px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:${sinStock?'not-allowed':'pointer'};opacity:${sinStock?.5:1}"
-             ${!sinStock ? `onclick="agregarAlCarrito(${p.id})"` : ''}
-             onmouseover="${!sinStock?"this.style.background='var(--bg-secondary,#f8fafc)'":''}"
-             onmouseout="this.style.background=''">
-            <div style="flex:1;min-width:0">
-                <div class="font-semibold text-sm" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.nombre)}</div>
-                <div class="text-xs text-muted">${esc(p.codigo)} - <span style="background:${badgeBg};color:${badgeColor};padding:1px 6px;border-radius:4px;font-size:.68rem">${badgeLabel}</span></div>
+    const META = {
+        maquinaria: ['Maquinaria', '#fef3c7', '#b45309'],
+        servicio:   ['Servicio',   '#fff7ed', '#ea580c'],
+        repuesto:   ['Repuesto',   '#f0fdf4', '#16a34a'],
+        material:   ['Material',    '#eff6ff', '#2563eb'],
+    };
+    const cards = lista.map(p => {
+        const t = clasificarItemVenta(p);
+        const esServicio = t === 'servicio';
+        const esMaqSiempre = t === 'maquinaria' && normalizarBooleano(p.maq_disponible_siempre);
+        const sinStock = !esServicio && !esMaqSiempre && parseFloat(p.stock_actual) <= 0;
+        const [badgeLabel, badgeBg, badgeColor] = META[t];
+        const stockTxt = esServicio ? 'Servicio' : (esMaqSiempre ? 'Disponible' : `${parseFloat(p.stock_actual).toFixed(2)} ${esc(p.unidad || '')}`);
+        return `<div class="venta-card" style="cursor:${sinStock?'not-allowed':'pointer'};opacity:${sinStock?.5:1}"
+             ${!sinStock ? `onclick="agregarAlCarrito(${p.id})"` : ''}>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+                <span style="background:${badgeBg};color:${badgeColor};padding:1px 7px;border-radius:4px;font-size:.66rem;font-weight:600">${badgeLabel}</span>
+                ${!sinStock ? '<i class="fa fa-plus-circle" style="color:var(--primary);font-size:1rem"></i>' : '<i class="fa fa-ban" style="color:var(--danger);font-size:.9rem"></i>'}
             </div>
-            <div class="text-right" style="flex-shrink:0">
-                <div class="text-sm font-semibold" style="color:${sinStock?'var(--danger)':'var(--text-primary)'}">${esServicio ? 'Servicio' : `${parseFloat(p.stock_actual).toFixed(2)} ${esc(p.unidad)}`}</div>
-                <div class="text-xs text-muted">${formatMoney(p.precio_venta)}</div>
+            <div class="font-semibold" style="font-size:.82rem;line-height:1.25;min-height:2.05em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical" title="${esc(p.nombre)}">${esc(p.nombre)}</div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px">
+                <span class="text-xs" style="color:${sinStock?'var(--danger)':'var(--text-muted)'}">Stock: ${stockTxt}</span>
+                <span style="font-weight:700;color:var(--primary);font-size:.8rem;white-space:nowrap">${formatMoney(p.precio_venta)}</span>
             </div>
-            ${!sinStock ? '<i class="fa fa-plus-circle" style="color:var(--primary);font-size:1.1rem;flex-shrink:0"></i>' : '<i class="fa fa-ban" style="color:var(--danger);font-size:1rem;flex-shrink:0"></i>'}
         </div>`;
     }).join('');
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px">${cards}</div>`;
 }
 
 function normalizarBooleano(v) {
@@ -1057,7 +1120,7 @@ function calcularLineaVentaUI(it) {
     const precio = Math.max(0, parseFloat(it.precio) || 0);
     const descuentoPct = Math.max(0, Math.min(100, parseFloat(it.descuento) || 0));
     const afectacion = it.afectacion_igv_codigo || '10';
-    const porcentaje = afectacion === '10' ? Math.max(0, parseFloat(it.porcentaje_igv) || 18) : 0;
+    const porcentaje = (TAX_ENABLED && afectacion === '10') ? Math.max(0, parseFloat(it.porcentaje_igv) || 18) : 0;
     const totalBruto = cantidad * precio;
     const descuento = totalBruto * (descuentoPct / 100);
     let total = totalBruto - descuento;
@@ -2093,18 +2156,23 @@ function actualizarSeriesVenta() {
 }
 
 async function cargarCombos() {
-    const [dc, dm, dp, dpr, ds] = await Promise.all([
+    const [dc, dm, dp, dpr, ds, dmod] = await Promise.all([
         apiGet(`${BASE}?action=clientes_combo`),
         apiGet(`${BASE}?action=maquinarias_combo`),
         apiGet(`${BASE}?action=proyectos_combo`),
         apiGet(`${BASE}?action=productos_combo`),
-        apiGet(`${BASE}?action=series_disponibles`)
+        apiGet(`${BASE}?action=series_disponibles`),
+        apiGet(`${BASE}?action=catalogo_modelos`)
     ]);
 
     const opts = '<option value="">Sin cliente / clientes varios</option>' + (dc.clientes||[]).map(c=>`<option value="${c.id}">${esc(c.razon_social || c.nombre_completo || 'Cliente')}</option>`).join('');
     document.getElementById('cotCliente').innerHTML   = opts;
-    document.getElementById('maqCliente').innerHTML   = opts;
     document.getElementById('ovCliente').innerHTML    = opts;
+    maqCatalogoModelos = (dmod.modelos || []).map(m => ({
+        ...m,
+        colores: typeof m.colores === 'string' ? (JSON.parse(m.colores || '[]') || []) : (m.colores || [])
+    }));
+    poblarSelectCatalogoMaq();
     seriesVenta = { nota_venta: [], boleta: [], factura: [] };
     (ds.series || []).forEach(s => {
         if (!seriesVenta[s.tipo]) seriesVenta[s.tipo] = [];
@@ -2276,12 +2344,57 @@ async function cargarMaquinarias() {
     </tr>`).join('');
 }
 
+// ── Catálogo de modelos (para registrar maquinaria) ───────────────
+const MAQ_CAT_IMG = '../../assets/uploads/catalogo/';
+let maqCatalogoModelos = [];
+
+function poblarSelectCatalogoMaq() {
+    const sel = document.getElementById('maqCatalogo');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">— Selecciona un modelo —</option>' +
+        maqCatalogoModelos.map(m => `<option value="${m.id}">${esc(m.nombre)}</option>`).join('');
+}
+
+function maqModeloActual() {
+    const id = document.getElementById('maqCatalogo').value;
+    return maqCatalogoModelos.find(m => String(m.id) === String(id)) || null;
+}
+
+function onMaqCatalogoChange() {
+    const m = maqModeloActual();
+    const colorSel = document.getElementById('maqColor');
+    document.getElementById('maqModelo').value = m ? (m.nombre || '') : '';
+    if (!m) { colorSel.innerHTML = '<option value="">—</option>'; onMaqColorChange(); return; }
+    const desc = document.getElementById('maqDesc');
+    if (!desc.value.trim()) desc.value = m.descripcion || m.descripcion_corta || '';
+    const colores = m.colores || [];
+    colorSel.innerHTML = '<option value="">' + (colores.length ? 'Selecciona color' : 'Sin colores') + '</option>' +
+        colores.map(c => `<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join('');
+    onMaqColorChange();
+}
+
+function onMaqColorChange() {
+    const m = maqModeloActual();
+    const color = document.getElementById('maqColor').value;
+    let img = m ? (m.imagen_principal || null) : null;
+    if (m && color) {
+        const c = (m.colores || []).find(x => x.nombre === color);
+        if (c && c.imagen) img = c.imagen;
+    }
+    const prev = document.getElementById('maqImgPreview');
+    const icon = document.getElementById('maqImgIcon');
+    if (img) { prev.src = MAQ_CAT_IMG + img; prev.style.display = ''; icon.style.display = 'none'; }
+    else { prev.src = ''; prev.style.display = 'none'; icon.style.display = ''; }
+}
+
 function abrirModalMaquinaria() {
     ['maqId','maqCodigo','maqModelo','maqSerie','maqDesc'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('maqFechaVenta').value=''; document.getElementById('maqGarantia').value=12;
     document.getElementById('maqCosto').value='0.00'; document.getElementById('maqPrecio').value='0.00';
     document.getElementById('maqEstadoVenta').value='disponible';
-    document.getElementById('maqCliente').value=''; document.getElementById('tituloMaq').textContent='Registrar Maquinaria';
+    document.getElementById('maqDisponibleSiempre').checked=false;
+    document.getElementById('maqCatalogo').value=''; onMaqCatalogoChange();
+    document.getElementById('tituloMaq').textContent='Registrar Maquinaria';
     Modal.open('modalMaquinaria');
 }
 
@@ -2291,25 +2404,37 @@ async function editarMaquinaria(id) {
         maquinariasVenta = d.maquinarias || [];
     }
     const m = maquinariasVenta.find(x=>x.id==id); if(!m) return;
-    document.getElementById('maqId').value=m.id; document.getElementById('maqCliente').value=m.cliente_id||'';
+    document.getElementById('maqId').value=m.id;
+    document.getElementById('maqCatalogo').value = m.catalogo_producto_id || '';
+    onMaqCatalogoChange();
+    const colorSel = document.getElementById('maqColor');
+    if (m.color && !Array.from(colorSel.options).some(o=>o.value===m.color)) {
+        colorSel.insertAdjacentHTML('beforeend', `<option value="${esc(m.color)}">${esc(m.color)}</option>`);
+    }
+    colorSel.value = m.color || '';
+    onMaqColorChange();
     document.getElementById('maqCodigo').value=m.codigo||''; document.getElementById('maqModelo').value=m.modelo||'';
     document.getElementById('maqSerie').value=m.numero_serie||''; document.getElementById('maqFechaVenta').value=m.fecha_venta||'';
     document.getElementById('maqCosto').value=parseFloat(m.costo_total_calc || m.costo_total || 0).toFixed(2);
     document.getElementById('maqPrecio').value=parseFloat(m.precio_venta_calc || m.precio_venta || 0).toFixed(2);
     document.getElementById('maqEstadoVenta').value=m.estado_venta || 'disponible';
+    document.getElementById('maqDisponibleSiempre').checked = normalizarBooleano(m.disponible_siempre);
     document.getElementById('maqGarantia').value=m.garantia_meses||12; document.getElementById('maqDesc').value=m.descripcion||'';
     document.getElementById('tituloMaq').textContent='Editar Maquinaria';
     Modal.open('modalMaquinaria');
 }
 
 async function guardarMaquinaria() {
-    if (!document.getElementById('maqModelo').value.trim()) { Toast.warning('El modelo es obligatorio.'); return; }
+    if (!document.getElementById('maqCatalogo').value) { Toast.warning('Selecciona el modelo del catálogo.'); return; }
     const res = await apiPost(BASE,{action:'maquinaria_guardar', id:document.getElementById('maqId').value,
-        cliente_id:document.getElementById('maqCliente').value, codigo:document.getElementById('maqCodigo').value,
-        modelo:document.getElementById('maqModelo').value, numero_serie:document.getElementById('maqSerie').value,
+        catalogo_producto_id:document.getElementById('maqCatalogo').value,
+        color:document.getElementById('maqColor').value,
+        modelo:document.getElementById('maqModelo').value, codigo:document.getElementById('maqCodigo').value,
+        numero_serie:document.getElementById('maqSerie').value,
         costo_total:document.getElementById('maqCosto').value, precio_venta:document.getElementById('maqPrecio').value,
         estado_venta:document.getElementById('maqEstadoVenta').value,
         fecha_venta:document.getElementById('maqFechaVenta').value, garantia_meses:document.getElementById('maqGarantia').value,
+        disponible_siempre:document.getElementById('maqDisponibleSiempre').checked,
         descripcion:document.getElementById('maqDesc').value});
     if (res.ok) { Toast.success('Maquinaria guardada.'); Modal.close('modalMaquinaria'); cargarMaquinarias(); }
     else Toast.error(res.error||'Error.');

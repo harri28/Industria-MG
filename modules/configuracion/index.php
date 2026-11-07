@@ -12,6 +12,7 @@ $modulos = [
     'clientes'         => 'Clientes / CRM',
     'comercializacion' => 'Comercializacion',
     'reportes'         => 'Reportes',
+    'facturacion'      => 'Facturacion',
     'seguridad'        => 'Seguridad',
     'capacitacion'     => 'Capacitacion',
 ];
@@ -160,7 +161,11 @@ $modulos = [
                 <i class="fa fa-receipt"></i> Emision electronica
             </div>
         </div>
-        <div class="empresa-columns">
+        <div class="tabs" style="margin-bottom:1rem">
+            <div class="tab active" data-group="emp" data-target="tabEmpDatos"><i class="fa fa-building"></i> Datos de la empresa</div>
+            <div class="tab" data-group="emp" data-target="tabEmpSunat"><i class="fa fa-file-shield"></i> Configuracion Sunat y certificado</div>
+        </div>
+        <div class="tab-content active" data-group="emp" id="tabEmpDatos">
             <div class="empresa-card">
                 <div class="empresa-card-header">
                     <div>
@@ -238,12 +243,19 @@ $modulos = [
                         <div class="form-group" style="display:flex;align-items:end">
                             <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;cursor:pointer">
                                 <input type="checkbox" id="empTaxEnabled" checked>
-                                Facturacion electronica habilitada
+                                Cobrar IGV (18%) en las ventas
                             </label>
                         </div>
                     </div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:1rem">
+                        <button class="btn btn-primary btn-sm" onclick="guardarEmpresaDatos()">
+                            <i class="fa fa-save"></i> Guardar datos
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
+        <div class="tab-content" data-group="emp" id="tabEmpSunat">
             <div class="empresa-card">
                 <div class="empresa-card-header">
                     <div>
@@ -305,8 +317,8 @@ $modulos = [
                         Estos datos se usan para pruebas de emision. Quedaron precargados con valores Mytems y un certificado base para que puedas configurar y validar sin empezar desde cero.
                     </div>
                     <div style="display:flex;justify-content:flex-end;margin-top:1rem">
-                        <button class="btn btn-primary btn-sm" onclick="guardarEmpresa()">
-                            <i class="fa fa-save"></i> Guardar configuracion
+                        <button class="btn btn-primary btn-sm" onclick="guardarEmpresaSunat()">
+                            <i class="fa fa-save"></i> Guardar configuracion SUNAT
                         </button>
                     </div>
                 </div>
@@ -321,7 +333,7 @@ $modulos = [
 <div class="tab-content" data-group="cfg" id="tabUsuarios">
     <div class="card">
         <div class="card-header">
-            <span class="card-title"><i class="fa fa-users"></i> GestiÃ³n de Usuarios</span>
+            <span class="card-title"><i class="fa fa-users"></i> Gestión de Usuarios</span>
             <div class="card-actions">
                 <div class="search-box">
                     <span class="icon"><i class="fa fa-search"></i></span>
@@ -336,8 +348,8 @@ $modulos = [
         <div class="table-responsive">
             <table>
                 <thead><tr>
-                    <th>Nombre</th><th>Email</th><th>Rol</th><th>Ãrea</th>
-                    <th>Ãšltimo Acceso</th><th>Estado</th><th></th>
+                    <th>Nombre</th><th>Email</th><th>Rol</th><th>Área</th>
+                    <th>Último Acceso</th><th>Estado</th><th></th>
                 </tr></thead>
                 <tbody id="usuariosBody">
                     <tr><td colspan="7" class="text-center">
@@ -369,22 +381,22 @@ $modulos = [
 </div>
 
 <!-- ============================================================
-     TAB: ÃREAS
+     TAB: ÁREAS
      ============================================================ -->
 <div class="tab-content" data-group="cfg" id="tabAreas">
     <div class="card">
         <div class="card-header">
-            <span class="card-title"><i class="fa fa-sitemap"></i> Ãreas de la Empresa</span>
+            <span class="card-title"><i class="fa fa-sitemap"></i> Áreas de la Empresa</span>
             <div class="card-actions">
                 <button class="btn btn-primary btn-sm" onclick="abrirModalArea()">
-                    <i class="fa fa-plus"></i> Nueva Ãrea
+                    <i class="fa fa-plus"></i> Nueva Área
                 </button>
             </div>
         </div>
         <div class="table-responsive">
             <table>
                 <thead><tr>
-                    <th>Nombre</th><th>DescripciÃ³n</th><th>Usuarios</th><th>Estado</th><th></th>
+                    <th>Nombre</th><th>Descripción</th><th>Usuarios</th><th>Estado</th><th></th>
                 </tr></thead>
                 <tbody id="areasBody">
                     <tr><td colspan="5" class="text-center">
@@ -550,7 +562,7 @@ $modulos = [
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">Nombre completo *</label>
-                    <input type="text" class="form-control" id="usuarioNombre" placeholder="Juan PÃ©rez">
+                    <input type="text" class="form-control" id="usuarioNombre" placeholder="Juan Pérez">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Email *</label>
@@ -559,8 +571,8 @@ $modulos = [
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label">ContraseÃ±a <span id="passHint" style="color:var(--text-secondary);font-size:.75rem">(requerida)</span></label>
-                    <input type="password" class="form-control" id="usuarioPassword" placeholder="MÃ­nimo 6 caracteres">
+                    <label class="form-label">Contraseña <span id="passHint" style="color:var(--text-secondary);font-size:.75rem">(requerida)</span></label>
+                    <input type="password" class="form-control" id="usuarioPassword" placeholder="Mínimo 6 caracteres">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Estado</label>
@@ -581,9 +593,9 @@ $modulos = [
                     </select>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Ãrea</label>
+                    <label class="form-label">Área</label>
                     <select class="form-control" id="usuarioArea">
-                        <option value="">â€” Sin Ã¡rea â€”</option>
+                        <option value="">â€” Sin área â€”</option>
                         <?php foreach ($areas as $a): ?>
                         <option value="<?= $a['id'] ?>"><?= htmlspecialchars($a['nombre']) ?></option>
                         <?php endforeach; ?>
@@ -617,18 +629,18 @@ $modulos = [
                     <input type="text" class="form-control" id="rolNombre" placeholder="Ej: Supervisor">
                 </div>
                 <div class="form-group" style="flex:3">
-                    <label class="form-label">DescripciÃ³n</label>
-                    <input type="text" class="form-control" id="rolDesc" placeholder="Breve descripciÃ³n">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" class="form-control" id="rolDesc" placeholder="Breve descripción">
                 </div>
             </div>
 
             <div style="margin-bottom:.5rem">
                 <label class="form-label" style="margin-bottom:.5rem">
-                    <i class="fa fa-lock-open" style="color:var(--primary)"></i> Permisos por mÃ³dulo
+                    <i class="fa fa-lock-open" style="color:var(--primary)"></i> Permisos por módulo
                 </label>
                 <label style="display:flex;align-items:center;gap:.5rem;font-size:.85rem;margin-bottom:.75rem;cursor:pointer">
                     <input type="checkbox" id="rolPermAll" onchange="toggleAllPerms(this.checked)">
-                    <strong>Acceso total a todos los mÃ³dulos (Administrador)</strong>
+                    <strong>Acceso total a todos los módulos (Administrador)</strong>
                 </label>
             </div>
 
@@ -636,7 +648,7 @@ $modulos = [
                 <table style="width:100%;border-collapse:collapse">
                     <thead>
                         <tr style="background:var(--bg-secondary)">
-                            <th style="padding:.5rem .75rem;text-align:left;font-size:.8rem;color:var(--text-secondary);font-weight:600">MÃ³dulo</th>
+                            <th style="padding:.5rem .75rem;text-align:left;font-size:.8rem;color:var(--text-secondary);font-weight:600">Módulo</th>
                             <th style="padding:.5rem .75rem;text-align:center;font-size:.8rem;color:var(--text-secondary);font-weight:600">Sin acceso</th>
                             <th style="padding:.5rem .75rem;text-align:center;font-size:.8rem;color:var(--text-secondary);font-weight:600">Lectura</th>
                             <th style="padding:.5rem .75rem;text-align:center;font-size:.8rem;color:var(--text-secondary);font-weight:600">Acceso completo</th>
@@ -671,23 +683,23 @@ $modulos = [
 </div>
 
 <!-- ============================================================
-     MODAL: ÃREA
+     MODAL: ÁREA
      ============================================================ -->
 <div class="modal-overlay" id="modalArea">
     <div class="modal" style="max-width:440px">
         <div class="modal-header">
-            <span class="modal-title" id="modalAreaTitulo">Nueva Ãrea</span>
+            <span class="modal-title" id="modalAreaTitulo">Nueva Área</span>
             <button class="modal-close" onclick="Modal.close('modalArea')">&times;</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="areaId">
             <div class="form-group">
-                <label class="form-label">Nombre del Ã¡rea *</label>
+                <label class="form-label">Nombre del área *</label>
                 <input type="text" class="form-control" id="areaNombre" placeholder="Ej: Soldadura">
             </div>
             <div class="form-group">
-                <label class="form-label">DescripciÃ³n</label>
-                <textarea class="form-control" id="areaDesc" rows="3" placeholder="DescripciÃ³n opcional"></textarea>
+                <label class="form-label">Descripción</label>
+                <textarea class="form-control" id="areaDesc" rows="3" placeholder="Descripción opcional"></textarea>
             </div>
         </div>
         <div class="modal-footer">
@@ -852,12 +864,12 @@ async function autocompletarUbigeoEmpresa() {
     }
 }
 
-async function guardarEmpresa() {
+async function guardarEmpresaDatos() {
     const razonSocial = document.getElementById('empRazonSocial').value.trim();
     if (!razonSocial) return Toast.error('La razon social es obligatoria.');
 
     const fd = new FormData();
-    fd.append('action', 'empresa_guardar');
+    fd.append('action', 'empresa_guardar_datos');
     fd.append('razon_social', razonSocial);
     fd.append('nombre_comercial', document.getElementById('empNombreComercial').value.trim());
     fd.append('ruc', document.getElementById('empRuc').value.trim());
@@ -870,6 +882,25 @@ async function guardarEmpresa() {
     fd.append('departamento', document.getElementById('empDepartamento').value.trim());
     fd.append('provincia', document.getElementById('empProvincia').value.trim());
     fd.append('distrito', document.getElementById('empDistrito').value.trim());
+    fd.append('tax_enabled', document.getElementById('empTaxEnabled').checked ? '1' : '0');
+
+    const logo = document.getElementById('empLogo').files[0];
+    if (logo) fd.append('logo', logo);
+
+    try {
+        const resp = await fetch(API_CFG, { method: 'POST', body: fd });
+        const r = await resp.json();
+        if (!r.ok) throw new Error(r.error || 'No se pudo guardar los datos.');
+        Toast.success('Datos de la empresa actualizados.');
+        cargarEmpresa();
+    } catch (e) {
+        Toast.error(e.message || 'Error al guardar los datos.');
+    }
+}
+
+async function guardarEmpresaSunat() {
+    const fd = new FormData();
+    fd.append('action', 'empresa_guardar_sunat');
     fd.append('sunat_server', document.getElementById('empSunatServer').value);
     fd.append('sunat_username', document.getElementById('empSunatUsername').value.trim());
     fd.append('sunat_password', document.getElementById('empSunatPassword').value.trim());
@@ -877,21 +908,18 @@ async function guardarEmpresa() {
     fd.append('gre_client_secret', document.getElementById('empGreClientSecret').value.trim());
     fd.append('certificate_password', document.getElementById('empCertificadoPassword').value.trim());
     fd.append('certificate_expires_at', document.getElementById('empCertificadoVence').value);
-    fd.append('tax_enabled', document.getElementById('empTaxEnabled').checked ? '1' : '0');
 
-    const logo = document.getElementById('empLogo').files[0];
     const certificado = document.getElementById('empCertificado').files[0];
-    if (logo) fd.append('logo', logo);
     if (certificado) fd.append('certificado', certificado);
 
     try {
         const resp = await fetch(API_CFG, { method: 'POST', body: fd });
         const r = await resp.json();
-        if (!r.ok) throw new Error(r.error || 'No se pudo guardar la empresa.');
-        Toast.success('Empresa emisora actualizada.');
+        if (!r.ok) throw new Error(r.error || 'No se pudo guardar la configuracion SUNAT.');
+        Toast.success('Configuracion SUNAT actualizada.');
         cargarEmpresa();
     } catch (e) {
-        Toast.error(e.message || 'Error al guardar la empresa.');
+        Toast.error(e.message || 'Error al guardar la configuracion SUNAT.');
     }
 }
 
@@ -975,7 +1003,7 @@ async function editarUsuario(id) {
         document.getElementById('usuarioRol').value     = u.rol_id  || '';
         document.getElementById('usuarioArea').value    = u.area_id || '';
         document.getElementById('modalUsuarioTitulo').textContent = 'Editar Usuario';
-        document.getElementById('passHint').textContent = '(dejar vacÃ­o para no cambiar)';
+        document.getElementById('passHint').textContent = '(dejar vacío para no cambiar)';
         Modal.open('modalUsuario');
     } catch(e) { Toast.error('Error al cargar usuario'); }
 }
@@ -987,7 +1015,7 @@ async function guardarUsuario() {
     const pass   = document.getElementById('usuarioPassword').value;
 
     if (!nombre || !email) return Toast.error('Nombre y email son obligatorios.');
-    if (!id && !pass) return Toast.error('La contraseÃ±a es obligatoria para nuevos usuarios.');
+    if (!id && !pass) return Toast.error('La contraseña es obligatoria para nuevos usuarios.');
 
     const payload = {
         action:   id ? 'usuario_actualizar' : 'usuario_crear',
@@ -1009,7 +1037,7 @@ async function guardarUsuario() {
 }
 
 async function toggleUsuario(id, nombre) {
-    if (!confirm(`Â¿${nombre}? Â¿Confirmar cambio de estado?`)) return;
+    if (!confirm(`¿${nombre}? ¿Confirmar cambio de estado?`)) return;
     try {
         await apiPost(API, { action: 'usuario_toggle', id });
         cargarUsuarios();
@@ -1052,7 +1080,7 @@ function renderRoles(roles) {
                 <div style="font-size:.78rem;color:var(--text-secondary);margin-bottom:.5rem">
                     ${esAdmin
                         ? '<span style="color:var(--primary);font-weight:600"><i class="fa fa-crown"></i> Acceso total</span>'
-                        : `${modCount} mÃ³dulo${modCount!=1?'s':''} con acceso`}
+                        : `${modCount} módulo${modCount!=1?'s':''} con acceso`}
                 </div>
                 <div style="display:flex;flex-wrap:wrap;gap:.25rem">
                     ${esAdmin
@@ -1166,7 +1194,7 @@ async function guardarRol() {
 }
 
 async function eliminarRol(id, nombre) {
-    if (!confirm(`Â¿Eliminar el rol "${nombre}"? Esta acciÃ³n no se puede deshacer.`)) return;
+    if (!confirm(`¿Eliminar el rol "${nombre}"? Esta acción no se puede deshacer.`)) return;
     try {
         await apiPost(API, { action: 'rol_eliminar', id });
         Toast.success('Rol eliminado.');
@@ -1175,7 +1203,7 @@ async function eliminarRol(id, nombre) {
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-// ÃREAS
+// ÁREAS
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 async function cargarAreas() {
     try {
@@ -1183,14 +1211,14 @@ async function cargarAreas() {
         renderAreas(d.areas || []);
     } catch(e) {
         document.getElementById('areasBody').innerHTML =
-            '<tr><td colspan="5" class="text-center" style="color:var(--danger)">Error al cargar Ã¡reas</td></tr>';
+            '<tr><td colspan="5" class="text-center" style="color:var(--danger)">Error al cargar áreas</td></tr>';
     }
 }
 
 function renderAreas(areas) {
     const tbody = document.getElementById('areasBody');
     if (!areas.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin Ã¡reas registradas</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Sin áreas registradas</td></tr>';
         return;
     }
     tbody.innerHTML = areas.map(a => `
@@ -1226,7 +1254,7 @@ function abrirModalArea() {
     document.getElementById('areaId').value    = '';
     document.getElementById('areaNombre').value= '';
     document.getElementById('areaDesc').value  = '';
-    document.getElementById('modalAreaTitulo').textContent = 'Nueva Ãrea';
+    document.getElementById('modalAreaTitulo').textContent = 'Nueva Área';
     Modal.open('modalArea');
 }
 
@@ -1234,7 +1262,7 @@ function editarArea(id, nombre, desc) {
     document.getElementById('areaId').value    = id;
     document.getElementById('areaNombre').value= nombre;
     document.getElementById('areaDesc').value  = desc;
-    document.getElementById('modalAreaTitulo').textContent = 'Editar Ãrea';
+    document.getElementById('modalAreaTitulo').textContent = 'Editar Área';
     Modal.open('modalArea');
 }
 
@@ -1250,7 +1278,7 @@ async function guardarArea() {
             nombre,
             descripcion: document.getElementById('areaDesc').value.trim(),
         });
-        Toast.success(id ? 'Ãrea actualizada.' : 'Ãrea creada.');
+        Toast.success(id ? 'Área actualizada.' : 'Área creada.');
         Modal.close('modalArea');
         cargarAreas();
     } catch(e) { Toast.error(e.message || 'Error al guardar'); }
@@ -1264,10 +1292,10 @@ async function toggleArea(id) {
 }
 
 async function eliminarArea(id, nombre) {
-    if (!confirm(`Â¿Eliminar el Ã¡rea "${nombre}"?`)) return;
+    if (!confirm(`¿Eliminar el área "${nombre}"?`)) return;
     try {
         await apiPost(API, { action: 'area_eliminar', id });
-        Toast.success('Ãrea eliminada.');
+        Toast.success('Área eliminada.');
         cargarAreas();
     } catch(e) { Toast.error(e.message || 'Error al eliminar'); }
 }

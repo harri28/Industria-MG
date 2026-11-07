@@ -27,10 +27,29 @@ function ventaDocumentoMeta(string $tipo): array
     return $map[$tipo] ?? $map['nota_venta'];
 }
 
-function ventaCalcularLinea(array $producto, float $cantidad, float $precioUnitario, float $descuentoPct): array
+// IGV global: lee empresa_emisora.tax_enabled (Configuracion -> Empresa). Si esta
+// apagado, todas las ventas/cotizaciones/ordenes se emiten sin IGV (items inafectos).
+function ventaTaxHabilitado(PDO $db): bool
+{
+    static $cache = null;
+    if ($cache === null) {
+        try {
+            $v = $db->query("SELECT tax_enabled FROM empresa_emisora ORDER BY id LIMIT 1")->fetchColumn();
+            $cache = ($v === false || $v === null) ? true : filter_var($v, FILTER_VALIDATE_BOOLEAN);
+        } catch (\Throwable $e) {
+            $cache = true;
+        }
+    }
+    return $cache;
+}
+
+function ventaCalcularLinea(array $producto, float $cantidad, float $precioUnitario, float $descuentoPct, bool $taxEnabled = true): array
 {
     $afectacion = trim((string)($producto['afectacion_igv_codigo'] ?? '10')) ?: '10';
-    $porcentajeIgv = $afectacion === '10' ? max(0, (float)($producto['porcentaje_igv'] ?? 18)) : 0;
+    if (!$taxEnabled) {
+        $afectacion = '30'; // IGV global desactivado -> inafecto (sin IGV)
+    }
+    $porcentajeIgv = ($taxEnabled && $afectacion === '10') ? max(0, (float)($producto['porcentaje_igv'] ?? 18)) : 0;
     $incluyeIgv = filter_var($producto['incluye_igv'] ?? true, FILTER_VALIDATE_BOOLEAN);
     $totalBruto = round(max(0, $cantidad) * max(0, $precioUnitario), 2);
     $descuento = round($totalBruto * (max(0, min(100, $descuentoPct)) / 100), 2);
@@ -85,7 +104,8 @@ function ventaSincronizarProductoMaquinaria(PDO $db, int $maquinariaId): ?int
     $descripcion = trim((string)($maq['descripcion'] ?? '')) ?: 'Maquinaria fabricada lista para venta';
     $costo = round((float)($maq['costo_total'] ?? 0), 2);
     $precio = round((float)($maq['precio_venta'] ?? 0), 2);
-    $stock = ($maq['estado_venta'] ?? 'disponible') === 'vendida' ? 0 : 1;
+    $dispSiempre = !empty($maq['disponible_siempre']) && filter_var($maq['disponible_siempre'], FILTER_VALIDATE_BOOLEAN);
+    $stock = $dispSiempre ? 9999 : (($maq['estado_venta'] ?? 'disponible') === 'vendida' ? 0 : 1);
 
     if (!empty($maq['producto_id'])) {
         $stmt = $db->prepare("
@@ -103,7 +123,7 @@ function ventaSincronizarProductoMaquinaria(PDO $db, int $maquinariaId): ?int
                 porcentaje_igv = 18.00,
                 incluye_igv = TRUE,
                 product_type = 'machine',
-                stock_actual = CASE WHEN stock_actual < 0 THEN 0 ELSE stock_actual END,
+                stock_actual = CASE WHEN :disp_siempre THEN 9999 WHEN stock_actual < 0 THEN 0 ELSE stock_actual END,
                 updated_at = NOW()
             WHERE id = :id
         ");
@@ -115,6 +135,7 @@ function ventaSincronizarProductoMaquinaria(PDO $db, int $maquinariaId): ?int
             ':categoria_id' => $categoriaId ?: null,
             ':costo' => $costo,
             ':precio' => $precio,
+            ':disp_siempre' => $dispSiempre ? 'true' : 'false',
         ]);
         return (int)$maq['producto_id'];
     }
@@ -440,7 +461,7 @@ try { switch ($action) {
         $db->beginTransaction();
         $detalles = $input['detalles'] ?? [];
         $subtotal = array_sum(array_column($detalles,'subtotal'));
-        $igv      = round($subtotal * IGV, 2);
+        $igv      = ventaTaxHabilitado($db) ? round($subtotal * IGV, 2) : 0.00;
         $total    = $subtotal + $igv;
 
         $fecha_vigencia = !empty($input['fecha_emision'])
@@ -555,24 +576,29 @@ try { switch ($action) {
         }
         $costoTotal = round((float)($input['costo_total'] ?? 0), 2);
         $precioVenta = round((float)($input['precio_venta'] ?? 0), 2);
+        $dispSiempre = filter_var($input['disponible_siempre'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+        $catalogoId = ($input['catalogo_producto_id'] ?? null) ?: null;
+        $color = trim((string)($input['color'] ?? '')) ?: null;
         if (!empty($input['id'])) {
-            $db->prepare("UPDATE maquinarias SET cliente_id=:cid,codigo=:cod,modelo=:mod,numero_serie=:ns,
+            $db->prepare("UPDATE maquinarias SET cliente_id=:cid,catalogo_producto_id=:catid,color=:color,codigo=:cod,modelo=:mod,numero_serie=:ns,
                 descripcion=:desc,fecha_venta=:fv,garantia_meses=:gm,garantia_hasta=:gh,
-                costo_total=:costo,precio_venta=:precio,estado_venta=:estado WHERE id=:id")
+                costo_total=:costo,precio_venta=:precio,estado_venta=:estado,disponible_siempre=:ds WHERE id=:id")
                ->execute([':id'=>(int)$input['id'],':cid'=>($input['cliente_id']??null)?:null,
+                ':catid'=>$catalogoId,':color'=>$color,
                 ':cod'=>($input['codigo']??null)?:null,':mod'=>($input['modelo']??null)?:null,
                 ':ns'=>($input['numero_serie']??null)?:null,':desc'=>($input['descripcion']??null)?:null,
                 ':fv'=>($input['fecha_venta']??null)?:null,':gm'=>(int)($input['garantia_meses']??12),':gh'=>$garantia_hasta,
-                ':costo'=>$costoTotal,':precio'=>$precioVenta,':estado'=>$estadoVenta]);
+                ':costo'=>$costoTotal,':precio'=>$precioVenta,':estado'=>$estadoVenta,':ds'=>$dispSiempre]);
             $maquinariaId = (int)$input['id'];
         } else {
-            $stmt=$db->prepare("INSERT INTO maquinarias (cliente_id,codigo,modelo,numero_serie,descripcion,fecha_venta,garantia_meses,garantia_hasta,costo_total,precio_venta,estado_venta)
-                VALUES (:cid,:cod,:mod,:ns,:desc,:fv,:gm,:gh,:costo,:precio,:estado) RETURNING id");
-            $stmt->execute([':cid'=>($input['cliente_id']??null)?:null,':cod'=>($input['codigo']??null)?:null,
+            $stmt=$db->prepare("INSERT INTO maquinarias (cliente_id,catalogo_producto_id,color,codigo,modelo,numero_serie,descripcion,fecha_venta,garantia_meses,garantia_hasta,costo_total,precio_venta,estado_venta,disponible_siempre)
+                VALUES (:cid,:catid,:color,:cod,:mod,:ns,:desc,:fv,:gm,:gh,:costo,:precio,:estado,:ds) RETURNING id");
+            $stmt->execute([':cid'=>($input['cliente_id']??null)?:null,':catid'=>$catalogoId,':color'=>$color,
+                ':cod'=>($input['codigo']??null)?:null,
                 ':mod'=>($input['modelo']??null)?:null,':ns'=>($input['numero_serie']??null)?:null,
                 ':desc'=>($input['descripcion']??null)?:null,':fv'=>($input['fecha_venta']??null)?:null,
                 ':gm'=>(int)($input['garantia_meses']??12),':gh'=>$garantia_hasta,
-                ':costo'=>$costoTotal,':precio'=>$precioVenta,':estado'=>$estadoVenta]);
+                ':costo'=>$costoTotal,':precio'=>$precioVenta,':estado'=>$estadoVenta,':ds'=>$dispSiempre]);
             $maquinariaId = (int)$stmt->fetchColumn();
         }
         ventaSincronizarProductoMaquinaria($db, $maquinariaId);
@@ -665,7 +691,7 @@ try { switch ($action) {
         $db->beginTransaction();
         $items    = $input['items'] ?? [];
         $subtotal = array_sum(array_column($items, 'subtotal'));
-        $igv      = round($subtotal * IGV, 2);
+        $igv      = ventaTaxHabilitado($db) ? round($subtotal * IGV, 2) : 0.00;
         $total    = $subtotal + $igv;
         if (!empty($input['id'])) {
             $db->prepare("UPDATE ordenes_venta SET cliente_id=:cid, proyecto_id=:pid, cotizacion_id=:cotid,
@@ -719,22 +745,24 @@ try { switch ($action) {
     // ================================================================
     case 'productos_listar_venta':
         $q = $input['q'] ?? '';
-        $where  = ['activo = TRUE'];
+        $where  = ['p.activo = TRUE'];
         $params = [];
         if ($q !== '') {
-            $where[]    = "(nombre ILIKE :q OR codigo ILIKE :q)";
+            $where[]    = "(p.nombre ILIKE :q OR p.codigo ILIKE :q)";
             $params[':q'] = '%' . $q . '%';
         }
         $stmt = $db->prepare("
-            SELECT id, codigo, nombre, unidad, unidad_id, unidad_codigo,
-                   afectacion_igv_id, afectacion_igv_codigo, porcentaje_igv, incluye_igv,
-                   codigo_interno, codigo_sunat, product_type,
-                   ROUND(stock_actual::numeric, 3) AS stock_actual,
-                   ROUND(precio_venta::numeric, 2)  AS precio_venta,
-                   es_repuesto
-            FROM productos
+            SELECT p.id, p.codigo, p.nombre, p.unidad, p.unidad_id, p.unidad_codigo,
+                   p.afectacion_igv_id, p.afectacion_igv_codigo, p.porcentaje_igv, p.incluye_igv,
+                   p.codigo_interno, p.codigo_sunat, p.product_type,
+                   ROUND(p.stock_actual::numeric, 3) AS stock_actual,
+                   ROUND(p.precio_venta::numeric, 2)  AS precio_venta,
+                   p.es_repuesto,
+                   COALESCE(m.disponible_siempre, FALSE) AS maq_disponible_siempre
+            FROM productos p
+            LEFT JOIN maquinarias m ON m.producto_id = p.id
             WHERE " . implode(' AND ', $where) . "
-            ORDER BY nombre");
+            ORDER BY p.nombre");
         $stmt->execute($params);
         jsonResponse(['ok' => true, 'productos' => $stmt->fetchAll()]);
 
@@ -759,6 +787,7 @@ try { switch ($action) {
         $exonerada = 0.00;
         $inafecta = 0.00;
         $descuentoGlobal = round(max(0, (float)($input['descuento'] ?? 0)), 2);
+        $taxEnabled = ventaTaxHabilitado($db);
         $esCredito = !empty($input['es_credito']);
         $tipoPago = $esCredito ? 'credito' : (trim((string)($input['tipo_pago'] ?? 'efectivo')) ?: 'efectivo');
         $paymentBreakdown = [];
@@ -911,7 +940,7 @@ try { switch ($action) {
                 jsonResponse(['error' => "Stock insuficiente para el producto ID {$prod_id}."], 400);
             }
 
-            $linea = ventaCalcularLinea($pr, $qty, $pu, $dto);
+            $linea = ventaCalcularLinea($pr, $qty, $pu, $dto, $taxEnabled);
             $subtotal += $linea['subtotal'];
             $igv += $linea['igv'];
             $total += $linea['total'];
@@ -1780,6 +1809,15 @@ try { switch ($action) {
         $stmt=$db->prepare("SELECT m.id, CONCAT(m.modelo,' - S/N:',m.numero_serie) AS label, m.cliente_id FROM maquinarias m WHERE m.activo AND $where ORDER BY m.modelo");
         $stmt->execute($params);
         jsonResponse(['ok'=>true,'maquinarias'=>$stmt->fetchAll()]);
+
+    case 'catalogo_modelos':
+        // Modelos del catalogo (Comercializacion) para registrar maquinarias.
+        $stmt = $db->query("
+            SELECT id, nombre, descripcion, descripcion_corta, imagen_principal, colores
+            FROM catalogo_productos
+            ORDER BY orden, nombre
+        ");
+        jsonResponse(['ok'=>true,'modelos'=>$stmt->fetchAll()]);
 
     case 'tecnicos_combo':
         $stmt=$db->query("SELECT id, nombre FROM usuarios WHERE activo ORDER BY nombre");

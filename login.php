@@ -70,17 +70,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: index.php');
                 exit;
             } else {
-                $_SESSION['login_error'] = 'Usuario o contraseÃ±a incorrectos.';
+                $_SESSION['login_error'] = 'Usuario o contraseña incorrectos.';
                 header('Location: login.php');
                 exit;
             }
         } catch (Exception $e) {
-            $_SESSION['login_error'] = 'Error de conexiÃ³n. Contacte al administrador.';
+            $_SESSION['login_error'] = 'Error de conexión. Contacte al administrador.';
             header('Location: login.php');
             exit;
         }
     } else {
-        $_SESSION['login_error'] = 'Ingrese usuario y contraseÃ±a.';
+        $_SESSION['login_error'] = 'Ingrese usuario y contraseña.';
         header('Location: login.php');
         exit;
     }
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iniciar sesiÃ³n â€” <?= APP_NAME ?></title>
+    <title>Iniciar sesión â€” <?= APP_NAME ?></title>
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <?php if ($favicon): ?>

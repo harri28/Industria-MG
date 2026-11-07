@@ -47,7 +47,7 @@ const Modal = {
 // Cerrar modal al clicar overlay
 document.addEventListener('click', e => {
     if (e.target.classList.contains('modal-overlay')) Modal.closeAll();
-    if (e.target.classList.contains('modal-close'))   Modal.closeAll();
+    if (e.target.closest('.modal-close'))             Modal.closeAll();
 });
 
 // ── TABS ────────────────────────────────────────────────────

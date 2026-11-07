@@ -556,7 +556,7 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                         </div>
                         <div class="form-group">
                             <label class="form-label">Stock Minimo</label>
-                            <input type="number" class="form-control" id="prod_stock_min" min="0" step="0.001" value="0">
+                            <input type="number" class="form-control" id="prod_stock_min" min="0" step="1" value="0">
                         </div>
                     </div>
 
@@ -1276,7 +1276,7 @@ async function editarProducto(id) {
         document.getElementById('prod_unidad_codigo').value = p.unidad_codigo || 'NIU';
         document.getElementById('prod_afectacion_igv').value = p.afectacion_igv_codigo || '20';
         document.getElementById('prod_metodo').value      = p.metodo_valuacion;
-        document.getElementById('prod_stock_min').value    = p.stock_minimo;
+        document.getElementById('prod_stock_min').value    = Math.round(parseFloat(p.stock_minimo) || 0);
         document.getElementById('prod_precio_compra').value = p.precio_compra ?? 0;
         document.getElementById('prod_precio_venta').value = p.precio_venta ?? 0;
         document.getElementById('prod_incluye_igv').checked = !!Number(p.incluye_igv ?? 1);

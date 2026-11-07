@@ -14,6 +14,7 @@ $modulos = [
     'clientes'         => 'Clientes / CRM',
     'comercializacion' => 'Comercialización',
     'reportes'         => 'Reportes',
+    'facturacion'      => 'Facturacion',
     'seguridad'        => 'Seguridad',
     'capacitacion'     => 'Capacitación',
 ];

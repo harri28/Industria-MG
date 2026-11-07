@@ -47,41 +47,76 @@ try { switch ($action) {
 
     case 'catalogo_guardar':
         if (empty($input['nombre'])) jsonResponse(['error' => 'El nombre es obligatorio.'], 400);
+        // Normaliza la lista de colores: [{nombre, imagen}] (solo entradas con nombre).
+        $coloresRaw = $input['colores'] ?? [];
+        if (is_string($coloresRaw)) $coloresRaw = json_decode($coloresRaw, true) ?: [];
+        $colores = [];
+        foreach ((is_array($coloresRaw) ? $coloresRaw : []) as $c) {
+            $cn = trim((string)($c['nombre'] ?? ''));
+            if ($cn === '') continue;
+            $colores[] = ['nombre' => $cn, 'imagen' => ($c['imagen'] ?? null) ?: null];
+        }
+        $coloresJson = json_encode($colores, JSON_UNESCAPED_UNICODE);
+        $catDir = __DIR__ . '/../../assets/uploads/catalogo/';
         $id = 0;
         if (!empty($input['id'])) {
             $id = (int)$input['id'];
+            // Borra del disco las imagenes de colores que se quitaron.
+            $prev = $db->prepare("SELECT colores FROM catalogo_productos WHERE id=:id");
+            $prev->execute([':id' => $id]);
+            $prevColores = json_decode((string)$prev->fetchColumn(), true) ?: [];
+            $vigentes = array_filter(array_column($colores, 'imagen'));
+            foreach ($prevColores as $pc) {
+                $img = $pc['imagen'] ?? null;
+                if ($img && !in_array($img, $vigentes, true) && file_exists($catDir . $img)) @unlink($catDir . $img);
+            }
             $db->prepare("UPDATE catalogo_productos SET
                 nombre=:nom, descripcion=:desc, descripcion_corta=:dcorta,
-                categoria=:cat, precio_referencial=:precio,
+                categoria=:cat, precio_referencial=:precio, colores=:colores,
                 publicado=:pub, destacado=:dest, orden=:orden
                 WHERE id=:id")->execute([
-                ':id'     => $id,
-                ':nom'    => trim($input['nombre']),
-                ':desc'   => ($input['descripcion'] ?? null) ?: null,
-                ':dcorta' => ($input['descripcion_corta'] ?? null) ?: null,
-                ':cat'    => ($input['categoria'] ?? null) ?: null,
-                ':precio' => ($input['precio_referencial'] ?? null) ?: null,
-                ':pub'    => filter_var($input['publicado'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                ':dest'   => filter_var($input['destacado'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                ':orden'  => (int)($input['orden'] ?? 0),
+                ':id'      => $id,
+                ':nom'     => trim($input['nombre']),
+                ':desc'    => ($input['descripcion'] ?? null) ?: null,
+                ':dcorta'  => ($input['descripcion_corta'] ?? null) ?: null,
+                ':cat'     => ($input['categoria'] ?? null) ?: null,
+                ':precio'  => ($input['precio_referencial'] ?? null) ?: null,
+                ':colores' => $coloresJson,
+                ':pub'     => filter_var($input['publicado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
+                ':dest'    => filter_var($input['destacado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
+                ':orden'   => (int)($input['orden'] ?? 0),
             ]);
         } else {
             $stmt = $db->prepare("INSERT INTO catalogo_productos
-                (nombre, descripcion, descripcion_corta, categoria, precio_referencial, publicado, destacado, orden)
-                VALUES (:nom, :desc, :dcorta, :cat, :precio, :pub, :dest, :orden) RETURNING id");
+                (nombre, descripcion, descripcion_corta, categoria, precio_referencial, colores, publicado, destacado, orden)
+                VALUES (:nom, :desc, :dcorta, :cat, :precio, :colores, :pub, :dest, :orden) RETURNING id");
             $stmt->execute([
-                ':nom'    => trim($input['nombre']),
-                ':desc'   => ($input['descripcion'] ?? null) ?: null,
-                ':dcorta' => ($input['descripcion_corta'] ?? null) ?: null,
-                ':cat'    => ($input['categoria'] ?? null) ?: null,
-                ':precio' => ($input['precio_referencial'] ?? null) ?: null,
-                ':pub'    => filter_var($input['publicado'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                ':dest'   => filter_var($input['destacado'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                ':orden'  => (int)($input['orden'] ?? 0),
+                ':nom'     => trim($input['nombre']),
+                ':desc'    => ($input['descripcion'] ?? null) ?: null,
+                ':dcorta'  => ($input['descripcion_corta'] ?? null) ?: null,
+                ':cat'     => ($input['categoria'] ?? null) ?: null,
+                ':precio'  => ($input['precio_referencial'] ?? null) ?: null,
+                ':colores' => $coloresJson,
+                ':pub'     => filter_var($input['publicado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
+                ':dest'    => filter_var($input['destacado'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
+                ':orden'   => (int)($input['orden'] ?? 0),
             ]);
             $id = (int)$stmt->fetchColumn();
         }
         jsonResponse(['ok' => true, 'id' => $id]);
+
+    case 'catalogo_color_img':
+        // Sube una imagen de color y devuelve su nombre de archivo (sin tocar la BD).
+        if (empty($_FILES['imagen']['tmp_name'])) jsonResponse(['error' => 'Imagen requerida.'], 400);
+        $file = $_FILES['imagen'];
+        $ext  = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg','jpeg','png','webp'])) jsonResponse(['error' => 'Formato no válido (jpg, png, webp).'], 400);
+        if ($file['size'] > 5 * 1024 * 1024) jsonResponse(['error' => 'Máximo 5MB.'], 400);
+        $catDir = __DIR__ . '/../../assets/uploads/catalogo/';
+        if (!is_dir($catDir)) mkdir($catDir, 0755, true);
+        $colorFilename = 'catcolor_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        if (!move_uploaded_file($file['tmp_name'], $catDir . $colorFilename)) jsonResponse(['error' => 'Error al guardar imagen.'], 500);
+        jsonResponse(['ok' => true, 'filename' => $colorFilename]);
 
     case 'catalogo_toggle_publicado':
         $db->prepare("UPDATE catalogo_productos SET publicado=NOT publicado WHERE id=:id")
@@ -144,8 +179,12 @@ try { switch ($action) {
             $where[] = "(nombre ILIKE :q OR empresa ILIKE :q OR email ILIKE :q)";
             $params[':q'] = '%' . $input['q'] . '%';
         }
-        $stmt = $db->prepare("SELECT l.*, c.razon_social AS cliente_nombre
-            FROM leads l LEFT JOIN clientes c ON c.id=l.cliente_id
+        $stmt = $db->prepare("SELECT l.*, c.razon_social AS cliente_nombre,
+                u.nombre AS responsable_nombre,
+                (SELECT COUNT(*) FROM lead_interacciones li WHERE li.lead_id = l.id) AS num_interacciones
+            FROM leads l
+            LEFT JOIN clientes c ON c.id=l.cliente_id
+            LEFT JOIN usuarios u ON u.id=l.responsable_id
             WHERE " . implode(' AND ', $where) . " ORDER BY l.created_at DESC");
         $stmt->execute($params);
         jsonResponse(['ok' => true, 'leads' => $stmt->fetchAll()]);
@@ -154,28 +193,35 @@ try { switch ($action) {
         if (!empty($input['id'])) {
             $db->prepare("UPDATE leads SET
                 nombre=:nom, email=:email, telefono=:tel, empresa=:emp,
-                origen=:ori, mensaje=:msg, estado=:est, cliente_id=:cid
+                origen=:ori, mensaje=:msg, estado=:est, cliente_id=:cid,
+                responsable_id=:resp, proxima_accion=:paccion, proxima_fecha=:pfecha
                 WHERE id=:id")->execute([
-                ':id'    => (int)$input['id'],
-                ':nom'   => ($input['nombre'] ?? null) ?: null,
-                ':email' => ($input['email'] ?? null) ?: null,
-                ':tel'   => ($input['telefono'] ?? null) ?: null,
-                ':emp'   => ($input['empresa'] ?? null) ?: null,
-                ':ori'   => ($input['origen'] ?? null) ?: null,
-                ':msg'   => ($input['mensaje'] ?? null) ?: null,
-                ':est'   => $input['estado'] ?? 'nuevo',
-                ':cid'   => ($input['cliente_id'] ?? null) ?: null,
+                ':id'      => (int)$input['id'],
+                ':nom'     => ($input['nombre'] ?? null) ?: null,
+                ':email'   => ($input['email'] ?? null) ?: null,
+                ':tel'     => ($input['telefono'] ?? null) ?: null,
+                ':emp'     => ($input['empresa'] ?? null) ?: null,
+                ':ori'     => ($input['origen'] ?? null) ?: null,
+                ':msg'     => ($input['mensaje'] ?? null) ?: null,
+                ':est'     => $input['estado'] ?? 'nuevo',
+                ':cid'     => ($input['cliente_id'] ?? null) ?: null,
+                ':resp'    => ($input['responsable_id'] ?? null) ?: null,
+                ':paccion' => ($input['proxima_accion'] ?? null) ?: null,
+                ':pfecha'  => ($input['proxima_fecha'] ?? null) ?: null,
             ]);
         } else {
-            $db->prepare("INSERT INTO leads (nombre, email, telefono, empresa, origen, mensaje, estado)
-                VALUES (:nom, :email, :tel, :emp, :ori, :msg, :est)")->execute([
-                ':nom'   => ($input['nombre'] ?? null) ?: null,
-                ':email' => ($input['email'] ?? null) ?: null,
-                ':tel'   => ($input['telefono'] ?? null) ?: null,
-                ':emp'   => ($input['empresa'] ?? null) ?: null,
-                ':ori'   => $input['origen'] ?? 'directo',
-                ':msg'   => ($input['mensaje'] ?? null) ?: null,
-                ':est'   => 'nuevo',
+            $db->prepare("INSERT INTO leads (nombre, email, telefono, empresa, origen, mensaje, estado, responsable_id, proxima_accion, proxima_fecha)
+                VALUES (:nom, :email, :tel, :emp, :ori, :msg, :est, :resp, :paccion, :pfecha)")->execute([
+                ':nom'     => ($input['nombre'] ?? null) ?: null,
+                ':email'   => ($input['email'] ?? null) ?: null,
+                ':tel'     => ($input['telefono'] ?? null) ?: null,
+                ':emp'     => ($input['empresa'] ?? null) ?: null,
+                ':ori'     => $input['origen'] ?? 'directo',
+                ':msg'     => ($input['mensaje'] ?? null) ?: null,
+                ':est'     => 'nuevo',
+                ':resp'    => ($input['responsable_id'] ?? null) ?: null,
+                ':paccion' => ($input['proxima_accion'] ?? null) ?: null,
+                ':pfecha'  => ($input['proxima_fecha'] ?? null) ?: null,
             ]);
         }
         jsonResponse(['ok' => true]);
@@ -213,9 +259,36 @@ try { switch ($action) {
         jsonResponse(['ok' => true]);
 
     case 'lead_obtener':
-        $stmt = $db->prepare("SELECT * FROM leads WHERE id=:id");
-        $stmt->execute([':id' => (int)($input['id'] ?? 0)]);
-        jsonResponse(['ok' => true, 'lead' => $stmt->fetch()]);
+        $lid = (int)($input['id'] ?? 0);
+        $stmt = $db->prepare("SELECT l.*, u.nombre AS responsable_nombre
+            FROM leads l LEFT JOIN usuarios u ON u.id=l.responsable_id WHERE l.id=:id");
+        $stmt->execute([':id' => $lid]);
+        $lead = $stmt->fetch();
+        $stmtI = $db->prepare("SELECT li.*, u.nombre AS usuario_nombre
+            FROM lead_interacciones li LEFT JOIN usuarios u ON u.id=li.usuario_id
+            WHERE li.lead_id=:id ORDER BY li.created_at DESC, li.id DESC");
+        $stmtI->execute([':id' => $lid]);
+        jsonResponse(['ok' => true, 'lead' => $lead, 'interacciones' => $stmtI->fetchAll()]);
+
+    case 'lead_interaccion_guardar':
+        $leadId = (int)($input['lead_id'] ?? 0);
+        $tipo   = trim((string)($input['tipo'] ?? 'nota')) ?: 'nota';
+        $nota   = trim((string)($input['nota'] ?? ''));
+        if (!$leadId) jsonResponse(['error' => 'Lead requerido.'], 400);
+        if ($nota === '') jsonResponse(['error' => 'La nota es obligatoria.'], 400);
+        $uid = $_SESSION['usuario']['id'] ?? null;
+        $db->prepare("INSERT INTO lead_interacciones (lead_id, tipo, nota, usuario_id)
+            VALUES (:lid, :tipo, :nota, :uid)")
+           ->execute([':lid' => $leadId, ':tipo' => $tipo, ':nota' => $nota, ':uid' => $uid]);
+        jsonResponse(['ok' => true]);
+
+    case 'lead_interaccion_eliminar':
+        $db->prepare("DELETE FROM lead_interacciones WHERE id=:id")->execute([':id' => (int)($input['id'] ?? 0)]);
+        jsonResponse(['ok' => true]);
+
+    case 'usuarios_combo':
+        $stmt = $db->query("SELECT id, nombre FROM usuarios WHERE activo ORDER BY nombre");
+        jsonResponse(['ok' => true, 'usuarios' => $stmt->fetchAll()]);
 
     case 'dashboard':
         $total_catalogo    = $db->query("SELECT COUNT(*) FROM catalogo_productos")->fetchColumn();
