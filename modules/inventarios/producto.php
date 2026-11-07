@@ -43,6 +43,9 @@ $valorTotal = (float)$p['stock_actual'] * (float)$p['precio_venta'];
     <?php if (!$almacenSoloLectura): ?>
     <div class="toolbar-right">
         <a href="index.php?editar=<?= $p['id'] ?>" class="btn btn-primary btn-sm"><i class="fa fa-pen"></i> Editar</a>
+        <button class="btn btn-sm" style="background:var(--danger);color:#fff" onclick="Modal.open('modalEliminar')">
+            <i class="fa fa-trash"></i> Eliminar
+        </button>
     </div>
     <?php endif; ?>
 </div>
@@ -149,4 +152,40 @@ $celdaProd    = $p['celda_estante'] ?? null;
     </div>
 </div>
 
-<?php require_once __DIR__ . '/../../includes/footer.php'; ?>
+<?php if (!$almacenSoloLectura): ?>
+<div class="modal-overlay" id="modalEliminar">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <span class="modal-title">Eliminar material</span>
+            <button class="modal-close" onclick="Modal.close('modalEliminar')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin:0;color:var(--text-secondary)">
+                ¿Eliminar <strong><?= esc($p['nombre']) ?></strong> del inventario?
+                Se quitará del listado pero se conserva su historial (kardex).
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="Modal.close('modalEliminar')">Cancelar</button>
+            <button class="btn" style="background:var(--danger);color:#fff" onclick="eliminarProducto()">
+                <i class="fa fa-trash"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+<?php
+$extra_js = <<<JS
+<script>
+function eliminarProducto() {
+    apiPost('api.php', { action: 'producto_toggle', id: {$p['id']} })
+        .then(r => {
+            if (r.ok) { Toast.success('Material eliminado.'); setTimeout(() => location.href = 'index.php', 600); }
+            else Toast.error(r.error || 'No se pudo eliminar.');
+        })
+        .catch(e => Toast.error(e.message || 'Error al eliminar'));
+}
+</script>
+JS;
+endif;
+
+require_once __DIR__ . '/../../includes/footer.php'; ?>

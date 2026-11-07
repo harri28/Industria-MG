@@ -774,6 +774,7 @@ function ejecutarConfirm() {
 function abrirModalImportar() {
     document.getElementById('imp_archivo').value = '';
     document.getElementById('imp_resultado').innerHTML = '';
+    document.getElementById('imp_btn').style.display = '';
     Modal.open('modalImportar');
 }
 async function ejecutarImportacion() {
@@ -799,6 +800,7 @@ async function ejecutarImportacion() {
             if (r.errores && r.errores.length)
                 html += `<div style="color:var(--danger);margin-top:8px">Avisos (${r.errores.length}):<br>${r.errores.slice(0,10).join('<br>')}</div>`;
             document.getElementById('imp_resultado').innerHTML = html;
+            document.getElementById('imp_btn').style.display = 'none';
             Toast.success(`${r.creados} materiales importados.`);
             cargarProductos(); cargarCombos();
         } else {
