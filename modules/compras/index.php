@@ -538,7 +538,7 @@ function badgeEstadoSC(e) {
     return `<span class="badge ${m[e]||'badge-secondary'}">${l[e]||e}</span>`;
 }
 
-async function abrirModalSC() {
+async function abrirModalSC(modoEdicion = false) {
     scActual = null;
     document.getElementById('sc_id').value = '';
     document.getElementById('sc_proveedor_id').value = '';
@@ -549,8 +549,10 @@ async function abrirModalSC() {
     document.getElementById('sc_observacion').innerHTML = '';
     document.getElementById('scLineas').innerHTML = '';
     document.getElementById('scVacio').style.display = 'none';
-    cargarSiguienteNumeroSC();
+    document.getElementById('modalSCTitle').querySelector('span').textContent = 'Nueva Solicitud de Compra';
     Modal.open('modalSC');
+    if (modoEdicion) return;   // en edición, los datos los carga editarSC()
+    cargarSiguienteNumeroSC();
     // Autollenar con productos en/bajo el stock mínimo
     try {
         const d = await apiGet('api.php?action=productos_bajo_minimo');
@@ -625,10 +627,8 @@ async function editarSC(id) {
     const d = await apiGet(`api.php?action=solicitud_obtener&id=${id}`);
     if (!d.ok) { Toast.error('No se pudo cargar la solicitud'); return; }
     const sc = d.solicitud;
-    // Reset base
-    await abrirModalSC();
-    document.getElementById('scLineas').innerHTML = '';
-    document.getElementById('scVacio').style.display = 'none';
+    // Reset base (modo edición: no autollena ni pide número nuevo)
+    await abrirModalSC(true);
     document.getElementById('sc_id').value = sc.id;
     document.getElementById('modalSCTitle').querySelector('span').textContent = 'Editar Solicitud de Compra';
     document.getElementById('scNumChip').textContent = sc.numero;
