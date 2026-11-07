@@ -107,6 +107,7 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                 </tbody>
             </table>
         </div>
+        <div id="prodPaginacion" style="display:none;justify-content:space-between;align-items:center;gap:12px;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap;font-size:.85rem"></div>
     </div>
 </div>
 
@@ -184,13 +185,12 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                 <thead><tr>
                     <th>Fecha</th><th>Codigo</th><th>Material</th>
                     <th style="text-align:right">Cantidad</th>
-                    <th style="text-align:right">P. Unit.</th>
                     <th style="text-align:right">Saldo</th>
                     <th>Usuario</th>
                     <th>Observaciones</th>
                 </tr></thead>
                 <tbody>
-                    <tr><td colspan="8" class="text-center">
+                    <tr><td colspan="7" class="text-center">
                         <div class="loading"><div class="spinner"></div></div>
                     </td></tr>
                 </tbody>
@@ -229,13 +229,12 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                 <thead><tr>
                     <th>Fecha</th><th>Codigo</th><th>Material</th>
                     <th style="text-align:right">Cantidad</th>
-                    <th style="text-align:right">P. Unit.</th>
                     <th style="text-align:right">Saldo</th>
                     <th>Usuario</th>
                     <th>Observaciones</th>
                 </tr></thead>
                 <tbody>
-                    <tr><td colspan="8" class="text-center">
+                    <tr><td colspan="7" class="text-center">
                         <div class="loading"><div class="spinner"></div></div>
                     </td></tr>
                 </tbody>
@@ -263,6 +262,9 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
             </select>
         </div>
         <div class="toolbar-right">
+            <button class="btn btn-secondary" onclick="exportarKardexCSV()">
+                <i class="fa fa-file-csv"></i> Exportar CSV
+            </button>
             <button class="btn btn-primary" onclick="cargarKardex()">
                 <i class="fa fa-search"></i> Consultar
             </button>
@@ -319,14 +321,13 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                 <thead><tr>
                     <th>Fecha</th><th>Tipo</th><th>Referencia</th>
                     <th style="text-align:right">Cantidad</th>
-                    <th style="text-align:right">P. Unit.</th>
                     <th style="text-align:right">Saldo Cant.</th>
                     <th style="text-align:right">Saldo Valor</th>
                     <th>Usuario</th>
                     <th>Observaciones</th>
                 </tr></thead>
                 <tbody>
-                    <tr><td colspan="9" class="text-center text-muted" style="padding:1.5rem">
+                    <tr><td colspan="8" class="text-center text-muted" style="padding:1.5rem">
                         Seleccione un material para ver su kardex
                     </td></tr>
                 </tbody>
@@ -1111,6 +1112,73 @@ async function guardarUnidad() {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // PRODUCTOS / MATERIALES
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ---- Paginación del listado de materiales (lado cliente) ----
+let prodItems = [];
+let prodPage  = 1;
+let prodPageSize = 25;
+
+function filaProductoHTML(p) {
+    const esCritico = parseFloat(p.stock_minimo) > 0 && parseFloat(p.stock_actual) <= parseFloat(p.stock_minimo);
+    const valor = parseFloat(p.stock_actual) * parseFloat(p.precio_venta);
+    const imgCell = p.imagen
+        ? `<img src="../../assets/uploads/materiales/${p.imagen}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">`
+        : `<div style="width:40px;height:40px;border:1px dashed var(--border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:.65rem;line-height:1.1;text-align:center">sin<br>img</div>`;
+    return `<tr class="fila-producto" data-id="${p.id}" onclick="irDetalleProducto(${p.id})">
+        <td style="text-align:center">${imgCell}</td>
+        <td><code>${p.codigo}</code></td>
+        <td>
+            ${p.nombre}
+            ${p.es_repuesto ? '<span class="badge badge-normal" style="font-size:.7rem;margin-left:4px">Repuesto</span>' : ''}
+        </td>
+        <td>${p.categoria_nombre || '—'}</td>
+        <td>${p.unidad}</td>
+        <td>${p.ubicacion || '—'}</td>
+        <td>
+            <strong style="color:${esCritico?'var(--danger)':'inherit'}">${Math.round(p.stock_actual)}</strong>
+            ${esCritico ? ' <i class="fa fa-triangle-exclamation" style="color:var(--danger);font-size:.8rem" title="Stock critico"></i>' : ''}
+        </td>
+        <td style="font-size:.82rem">${Math.round(p.stock_minimo)}</td>
+        <td>${formatMoney(p.precio_venta)}</td>
+        <td>${formatMoney(valor)}</td>
+    </tr>`;
+}
+
+function renderProductosPagina() {
+    const tbody = document.querySelector('#tablaprod tbody');
+    const barra = document.getElementById('prodPaginacion');
+    const total = prodItems.length;
+    if (total === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted" style="padding:1.5rem">Sin materiales registrados</td></tr>';
+        barra.style.display = 'none';
+        return;
+    }
+    const totalPags = Math.max(1, Math.ceil(total / prodPageSize));
+    if (prodPage > totalPags) prodPage = totalPags;
+    if (prodPage < 1) prodPage = 1;
+    const ini = (prodPage - 1) * prodPageSize;
+    const fin = Math.min(ini + prodPageSize, total);
+    tbody.innerHTML = prodItems.slice(ini, fin).map(filaProductoHTML).join('');
+
+    barra.style.display = 'flex';
+    barra.innerHTML = `
+        <span style="color:var(--text-secondary)">Mostrando <strong>${ini + 1}–${fin}</strong> de <strong>${total}</strong></span>
+        <div style="display:flex;align-items:center;gap:6px">
+            <button class="btn btn-sm btn-secondary" ${prodPage <= 1 ? 'disabled' : ''} onclick="irPaginaProd(${prodPage - 1})"><i class="fa fa-chevron-left"></i></button>
+            <span style="min-width:90px;text-align:center">Página ${prodPage} / ${totalPags}</span>
+            <button class="btn btn-sm btn-secondary" ${prodPage >= totalPags ? 'disabled' : ''} onclick="irPaginaProd(${prodPage + 1})"><i class="fa fa-chevron-right"></i></button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;color:var(--text-secondary)">
+            Ver
+            <select class="form-control" style="width:auto;padding:2px 8px" onchange="cambiarTamPaginaProd(this.value)">
+                ${[25, 50, 100, 200].map(n => `<option value="${n}" ${n === prodPageSize ? 'selected' : ''}>${n}</option>`).join('')}
+            </select>
+            por página
+        </label>`;
+}
+
+function irPaginaProd(n)        { prodPage = n; renderProductosPagina(); }
+function cambiarTamPaginaProd(n){ prodPageSize = parseInt(n, 10) || 25; prodPage = 1; renderProductosPagina(); }
+
 async function cargarProductos() {
     const q        = document.getElementById('prodSearch').value;
     const cat      = document.getElementById('prodCategoria').value;
@@ -1119,35 +1187,13 @@ async function cargarProductos() {
     try {
         const d = await apiGet(`${API_INV}?action=productos_listar&q=${encodeURIComponent(q)}&categoria_id=${cat}&es_repuesto=${repuesto}&stock_critico=${critico}`);
         if (!d.ok) return;
-        const tbody = document.querySelector('#tablaprod tbody');
-        tbody.innerHTML = d.productos.map(p => {
-            const esCritico = parseFloat(p.stock_minimo) > 0 && parseFloat(p.stock_actual) <= parseFloat(p.stock_minimo);
-            const valor = parseFloat(p.stock_actual) * parseFloat(p.precio_venta);
-            const imgCell = p.imagen
-                ? `<img src="../../assets/uploads/materiales/${p.imagen}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid var(--border)">`
-                : `<div style="width:40px;height:40px;border:1px dashed var(--border);border-radius:4px;display:inline-flex;align-items:center;justify-content:center;color:var(--text-secondary);font-size:.65rem;line-height:1.1;text-align:center">sin<br>img</div>`;
-            return `<tr class="fila-producto" data-id="${p.id}" onclick="irDetalleProducto(${p.id})">
-                <td style="text-align:center">${imgCell}</td>
-                <td><code>${p.codigo}</code></td>
-                <td>
-                    ${p.nombre}
-                    ${p.es_repuesto ? '<span class="badge badge-normal" style="font-size:.7rem;margin-left:4px">Repuesto</span>' : ''}
-                </td>
-                <td>${p.categoria_nombre || '—'}</td>
-                <td>${p.unidad}</td>
-                <td>${p.ubicacion || '—'}</td>
-                <td>
-                    <strong style="color:${esCritico?'var(--danger)':'inherit'}">${Math.round(p.stock_actual)}</strong>
-                    ${esCritico ? ' <i class="fa fa-triangle-exclamation" style="color:var(--danger);font-size:.8rem" title="Stock critico"></i>' : ''}
-                </td>
-                <td style="font-size:.82rem">${Math.round(p.stock_minimo)}</td>
-                <td>${formatMoney(p.precio_venta)}</td>
-                <td>${formatMoney(valor)}</td>
-            </tr>`;
-        }).join('') || '<tr><td colspan="10" class="text-center text-muted" style="padding:1.5rem">Sin materiales registrados</td></tr>';
+        prodItems = d.productos || [];
+        prodPage = 1;
+        renderProductosPagina();
     } catch(e) {
         document.querySelector('#tablaprod tbody').innerHTML =
             '<tr><td colspan="10" class="text-center" style="color:var(--danger)">Error al cargar materiales</td></tr>';
+        document.getElementById('prodPaginacion').style.display = 'none';
     }
 }
 
@@ -1323,6 +1369,49 @@ function quitarImagen() {
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // KARDEX
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// Formatea un timestamp del kardex ("YYYY-MM-DD HH:MM:SS") como "dd/mm/aaaa HH:MM".
+function formatFechaHora(str) {
+    if (!str) return '—';
+    const d = new Date(String(str).replace(' ', 'T'));
+    if (isNaN(d.getTime())) return str;
+    return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+           ' ' + d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+}
+// Etiqueta legible para el origen del movimiento (referencia_tipo).
+function labelReferencia(ref) {
+    const m = {
+        importacion: 'Importación', orden_compra: 'Orden de compra', ajuste_manual: 'Ajuste manual',
+        recepcion: 'Recepción', venta: 'Venta', orden_venta: 'Orden de venta', transformacion: 'Transformación'
+    };
+    return m[ref] || (ref || '—');
+}
+const capitalizar = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
+// Movimientos del último Kardex consultado (para exportar a CSV).
+let kardexMovs = [];
+let kardexProdNombre = '';
+
+// Exporta a CSV (separador ";" y decimal "," para Excel en español) lo último consultado.
+function exportarKardexCSV() {
+    if (!kardexMovs.length) return Toast.error('Primero consulta un material con movimientos.');
+    const num = v => parseFloat(v || 0).toFixed(2).replace('.', ',');
+    const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const cab = ['Fecha', 'Tipo', 'Referencia', 'Cantidad', 'Saldo Cant.', 'Saldo Valor', 'Usuario', 'Observaciones'];
+    const filas = kardexMovs.map(m => [
+        formatFechaHora(m.fecha), capitalizar(m.tipo), labelReferencia(m.referencia_tipo),
+        (m.tipo === 'salida' ? '-' : '') + num(m.cantidad), num(m.saldo_cantidad), num(m.saldo_valor),
+        m.usuario_nombre || '', m.observaciones || ''
+    ].map(esc).join(';'));
+    const csv = '﻿' + [cab.map(esc).join(';'), ...filas].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `kardex_${(kardexProdNombre || 'material').replace(/[^\w-]+/g, '_')}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    Toast.success('Kardex exportado.');
+}
+
 async function cargarKardex() {
     const prodId = document.getElementById('kardexProducto').value;
     if (!prodId) return Toast.error('Seleccione un material.');
@@ -1339,6 +1428,8 @@ async function cargarKardex() {
     try {
         const d = await apiGet(`${API_INV}?action=kardex_listar&producto_id=${prodId}&desde=${desde}&hasta=${hasta}&tipo=${tipo}`);
         if (!d.ok) return;
+        kardexMovs = d.movimientos;
+        kardexProdNombre = opt?.dataset.nombre || '';
 
         // Stats bar
         const st = d.stats || {};
@@ -1354,16 +1445,15 @@ async function cargarKardex() {
         const tipoColor = { entrada: 'badge-completado', salida: 'badge-cancelado', ajuste: 'badge-normal' };
         const rowBorder = { entrada: 'border-left:3px solid #16a34a', salida: 'border-left:3px solid #dc2626', ajuste: 'border-left:3px solid #3b82f6' };
         document.querySelector('#tablaKardex tbody').innerHTML = d.movimientos.map(m => `<tr style="${rowBorder[m.tipo]||''}">
-            <td style="white-space:nowrap">${formatDate(m.fecha)}</td>
-            <td><span class="badge ${tipoColor[m.tipo]||'badge-normal'}">${m.tipo}</span></td>
-            <td style="font-size:.8rem">${m.referencia_tipo || '—'}</td>
+            <td style="white-space:nowrap">${formatFechaHora(m.fecha)}</td>
+            <td><span class="badge ${tipoColor[m.tipo]||'badge-normal'}">${capitalizar(m.tipo)}</span></td>
+            <td style="font-size:.8rem">${labelReferencia(m.referencia_tipo)}</td>
             <td style="text-align:right"><strong>${m.tipo==='salida'?'- ':'+'}${parseFloat(m.cantidad).toFixed(2)}</strong></td>
-            <td style="text-align:right">${formatMoney(m.precio_unitario)}</td>
-            <td style="text-align:right">${m.saldo_cantidad}</td>
+            <td style="text-align:right">${parseFloat(m.saldo_cantidad).toFixed(2)}</td>
             <td style="text-align:right">${formatMoney(m.saldo_valor)}</td>
             <td style="font-size:.8rem">${m.usuario_nombre || '—'}</td>
             <td style="font-size:.8rem">${m.observaciones || '—'}</td>
-        </tr>`).join('') || '<tr><td colspan="9" class="text-center text-muted" style="padding:1.5rem">Sin movimientos en el periodo</td></tr>';
+        </tr>`).join('') || '<tr><td colspan="8" class="text-center text-muted" style="padding:1.5rem">Sin movimientos en el periodo</td></tr>';
     } catch(e) { Toast.error('Error al cargar kardex'); }
 }
 
@@ -1431,18 +1521,17 @@ async function cargarMovimientos(tipo) {
         const d = await apiGet(`${API_INV}?action=kardex_global&tipo=${tipo}&q=${encodeURIComponent(q)}&desde=${desde}&hasta=${hasta}`);
         if (!d.ok) return;
         document.querySelector(tbodySel).innerHTML = d.movimientos.map(m => `<tr>
-            <td style="white-space:nowrap">${formatDate(m.fecha)}</td>
+            <td style="white-space:nowrap">${formatFechaHora(m.fecha)}</td>
             <td><code>${m.producto_codigo}</code></td>
             <td>${m.producto_nombre}</td>
             <td style="text-align:right"><strong>${parseFloat(m.cantidad).toFixed(2)}</strong></td>
-            <td style="text-align:right">${formatMoney(m.precio_unitario)}</td>
             <td style="text-align:right">${m.saldo_cantidad}</td>
             <td style="font-size:.8rem">${m.usuario_nombre || '—'}</td>
             <td style="font-size:.8rem">${m.observaciones || '—'}</td>
-        </tr>`).join('') || `<tr><td colspan="8" class="text-center text-muted" style="padding:1.5rem">Sin ${tipo === 'entrada' ? 'entradas' : 'salidas'} registradas</td></tr>`;
+        </tr>`).join('') || `<tr><td colspan="7" class="text-center text-muted" style="padding:1.5rem">Sin ${tipo === 'entrada' ? 'entradas' : 'salidas'} registradas</td></tr>`;
     } catch(e) {
         document.querySelector(tbodySel).innerHTML =
-            `<tr><td colspan="8" class="text-center" style="color:var(--danger)">Error al cargar ${tipo === 'entrada' ? 'entradas' : 'salidas'}</td></tr>`;
+            `<tr><td colspan="7" class="text-center" style="color:var(--danger)">Error al cargar ${tipo === 'entrada' ? 'entradas' : 'salidas'}</td></tr>`;
     }
 }
 
