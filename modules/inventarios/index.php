@@ -1,12 +1,12 @@
 ﻿<?php
-$page_title      = 'Almacén';
-$page_breadcrumb = '<span>Operaciones</span> <span>/</span> Almacén';
+$page_title      = 'Inventario';
+$page_breadcrumb = '<span>Operaciones</span> <span>/</span> Inventario';
 require_once __DIR__ . '/../../includes/header.php';
 
 $permisoAlmacen = nivelPermiso('inventarios');
 if ($permisoAlmacen === 'ninguno') {
     echo '<div class="alert alert-danger" style="margin:20px">
-        <i class="fa fa-lock"></i> No tienes permisos para acceder al módulo de Almacén. Contacta a un administrador.
+        <i class="fa fa-lock"></i> No tienes permisos para acceder al módulo de Inventario. Contacta a un administrador.
     </div>';
     require_once __DIR__ . '/../../includes/footer.php';
     exit;
@@ -22,6 +22,12 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
 .prod-modal-grid { display: grid; grid-template-columns: 190px 1fr; gap: 24px; }
 @media (max-width: 640px) {
     .prod-modal-grid { grid-template-columns: 1fr; }
+}
+.btn-importar { transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+.btn-importar:hover {
+    background: #dcfce7;       /* verde pastel */
+    border-color: #86efac;
+    color: #166534;
 }
 </style>
 
@@ -45,6 +51,9 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
     <div class="tab" data-group="inv" data-target="tabCategorias">
         <i class="fa fa-tags"></i> Categorias
     </div>
+    <div class="tab" data-group="inv" data-target="tabCeldas">
+        <i class="fa fa-table-cells"></i> Celdas
+    </div>
 </div>
 
 <!-- ============================================================
@@ -53,16 +62,11 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
 <div class="tab-content active" data-group="inv" id="tabProductos">
     <div class="toolbar">
         <div class="toolbar-left">
-            <div class="search-box" style="border-color:var(--primary);background:#fff7ed" title="Lector de código de barras — escanea y presiona Enter">
+            <div class="search-box" style="min-width:320px;border-color:var(--primary)" title="Escribe para filtrar, o escanea un código de barras y presiona Enter">
                 <span class="icon" style="color:var(--primary)"><i class="fa fa-barcode"></i></span>
-                <input type="text" class="form-control" id="scanBarra"
-                       placeholder="Escanear código de barras..."
-                       style="background:transparent"
+                <input type="text" class="form-control" id="prodSearch"
+                       placeholder="Buscar codigo, nombre o escanear código de barras..."
                        onkeydown="if(event.key==='Enter'){event.preventDefault();buscarPorCodigo(this.value)}">
-            </div>
-            <div class="search-box">
-                <span class="icon"><i class="fa fa-search"></i></span>
-                <input type="text" class="form-control" id="prodSearch" placeholder="Buscar codigo o nombre...">
             </div>
             <select class="form-control" id="prodCategoria" style="width:180px">
                 <option value="">Todas las categorias</option>
@@ -81,6 +85,9 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
             <button class="btn btn-primary" onclick="abrirModalProducto()">
                 <i class="fa fa-plus"></i> Nuevo Material
             </button>
+            <button class="btn btn-secondary btn-importar" onclick="abrirModalImportar()">
+                <i class="fa fa-file-excel"></i> Importar
+            </button>
             <?php endif; ?>
         </div>
     </div>
@@ -90,7 +97,7 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                 <thead><tr>
                     <th style="width:52px"></th>
                     <th>Codigo</th><th>Nombre</th><th>Categoria</th>
-                    <th>Unidad</th><th>Ubicacion</th><th>Stock</th><th>Min/Max</th>
+                    <th>Unidad</th><th>Ubicacion</th><th>Stock</th><th>Min</th>
                     <th>P. de Venta</th><th>Total</th>
                 </tr></thead>
                 <tbody>
@@ -134,7 +141,7 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                 <thead><tr>
                     <th style="width:52px"></th>
                     <th>Codigo</th><th>Nombre</th><th>Categoria</th>
-                    <th>Unidad</th><th>Ubicacion</th><th>Stock</th><th>Min/Max</th>
+                    <th>Unidad</th><th>Ubicacion</th><th>Stock</th><th>Min</th>
                     <th>P. de Venta</th><th>Total</th>
                 </tr></thead>
                 <tbody>
@@ -356,6 +363,83 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
             </table>
         </div>
     </div>
+
+    <div class="card" style="margin-top:18px">
+        <div class="card-header"><span class="card-title"><i class="fa fa-ruler"></i> Unidades de Medida</span></div>
+        <div class="card-body">
+            <?php if (!$almacenSoloLectura): ?>
+            <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">
+                <div class="form-group" style="margin:0;width:160px">
+                    <label class="form-label">Código *</label>
+                    <input type="text" class="form-control" id="uni_codigo" placeholder="Ej: pln" maxlength="10">
+                </div>
+                <div class="form-group" style="margin:0;flex:1;min-width:200px">
+                    <label class="form-label">Nombre *</label>
+                    <input type="text" class="form-control" id="uni_nombre" placeholder="Ej: Plancha">
+                </div>
+                <button class="btn btn-primary" onclick="guardarUnidad()"><i class="fa fa-plus"></i> Agregar</button>
+            </div>
+            <?php endif; ?>
+            <div class="table-responsive">
+                <table>
+                    <thead><tr><th style="width:160px">Código</th><th>Nombre</th><th style="width:80px"></th></tr></thead>
+                    <tbody id="listaUnidades">
+                        <tr><td colspan="3" class="text-center text-muted">—</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     TAB: CELDAS (configuracion global del estante)
+     ============================================================ -->
+<div class="tab-content" data-group="inv" id="tabCeldas">
+    <div style="display:grid;grid-template-columns:360px 1fr;gap:20px;align-items:start">
+        <div class="card">
+            <div class="card-header"><span class="card-title"><i class="fa fa-sliders"></i> Configuración del Estante</span></div>
+            <div class="card-body">
+                <?php if ($almacenSoloLectura): ?>
+                <div class="alert alert-info" style="font-size:.85rem">Tu rol es de solo lectura; no puedes cambiar esta configuración.</div>
+                <?php endif; ?>
+                <div class="form-group">
+                    <label class="form-label">Nombre del estante</label>
+                    <input type="text" class="form-control" id="est_nombre" maxlength="60" placeholder="Ej: Estante Principal" oninput="previewEstante()">
+                </div>
+                <div class="form-row cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Ancho del estante (px)</label>
+                        <input type="number" class="form-control" id="est_ancho" min="240" max="1400" step="10" value="360" oninput="previewEstante()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Grosor de líneas (px)</label>
+                        <input type="number" class="form-control" id="est_grosor" min="1" max="24" step="1" value="7" oninput="previewEstante()">
+                    </div>
+                </div>
+                <div class="form-row cols-2">
+                    <div class="form-group">
+                        <label class="form-label">Columnas (A, B, C…)</label>
+                        <input type="number" class="form-control" id="est_columnas" min="1" max="26" value="6" oninput="previewEstante()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Filas (1 … N)</label>
+                        <input type="number" class="form-control" id="est_filas" min="1" max="99" value="6" oninput="previewEstante()">
+                    </div>
+                </div>
+                <div style="color:var(--text-secondary);font-size:.8rem;margin-bottom:10px">
+                    Al cambiar el ancho, cada celda se ajusta proporcionalmente. Esta configuración es global.
+                </div>
+                <?php if (!$almacenSoloLectura): ?>
+                <button class="btn btn-primary" onclick="guardarEstante()"><i class="fa fa-save"></i> Guardar configuración</button>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><span class="card-title" id="est_preview_titulo">Vista previa</span></div>
+            <div class="card-body" id="est_preview" style="overflow:auto"></div>
+        </div>
+    </div>
 </div>
 
 <!-- ============================================================
@@ -400,34 +484,25 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
 
                 <!-- DERECHA: campos -->
                 <div>
-                    <div class="form-group">
-                        <label class="form-label">Codigo de barras</label>
-                        <div class="search-box" style="border:1.5px solid var(--primary);border-radius:var(--radius-sm);background:#fff7ed"
-                             title="Escanea con el lector o escribe manualmente">
-                            <span class="icon" style="color:var(--primary)"><i class="fa fa-barcode"></i></span>
-                            <input type="text" class="form-control" id="prod_codigo_barras" placeholder="Escanear o escribir..."
-                                   style="width:100%;background:transparent;border:none"
-                                   onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
-                        </div>
-                    </div>
-                    <div class="form-row cols-3">
-                        <div class="form-group">
-                            <label class="form-label">Codigo *</label>
-                            <input type="text" class="form-control" id="prod_codigo" placeholder="Ej: AC-001">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Unidad</label>
-                            <div style="display:flex;gap:6px">
-                                <select class="form-control" id="prod_unidad" style="flex:1"></select>
-                                <button type="button" class="btn btn-secondary btn-sm" title="Agregar unidad de medida" onclick="abrirModalUnidad()">
-                                    <i class="fa fa-plus"></i>
-                                </button>
+                    <div style="display:flex;gap:12px">
+                        <div class="form-group" style="flex:2">
+                            <label class="form-label">Codigo de barras</label>
+                            <div class="search-box" style="border:1.5px solid var(--primary);border-radius:var(--radius-sm);background:#fff7ed"
+                                 title="Escanea con el lector o escribe manualmente">
+                                <span class="icon" style="color:var(--primary)"><i class="fa fa-barcode"></i></span>
+                                <input type="text" class="form-control" id="prod_codigo_barras" placeholder="Escanear o escribir..."
+                                       style="width:100%;background:transparent;border:none"
+                                       onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Ubicacion</label>
-                            <input type="text" class="form-control" id="prod_ubicacion" placeholder="Ej: Rack A-3">
+                        <div class="form-group" style="flex:1">
+                            <label class="form-label">Unidad de Medida</label>
+                            <select class="form-control" id="prod_unidad"></select>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Codigo *</label>
+                        <input type="text" class="form-control" id="prod_codigo" placeholder="Ej: AC-001">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Nombre *</label>
@@ -471,6 +546,10 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                     </div>
                     <div class="form-row cols-3">
                         <div class="form-group">
+                            <label class="form-label">Precio de Compra (S/)</label>
+                            <input type="number" class="form-control" id="prod_precio_compra" min="0" step="0.01" value="0" placeholder="0.00">
+                        </div>
+                        <div class="form-group">
                             <label class="form-label">Precio de Venta (S/)</label>
                             <input type="number" class="form-control" id="prod_precio_venta" min="0" step="0.01" value="0" placeholder="0.00">
                         </div>
@@ -478,14 +557,17 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
                             <label class="form-label">Stock Minimo</label>
                             <input type="number" class="form-control" id="prod_stock_min" min="0" step="0.001" value="0">
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Stock Maximo</label>
-                            <input type="number" class="form-control" id="prod_stock_max" min="0" step="0.001" value="0">
-                        </div>
                     </div>
-                    <div class="form-group" style="max-width:220px">
-                        <label class="form-label">Porcentaje IGV</label>
-                        <input type="number" class="form-control" id="prod_porcentaje_igv" min="0" step="0.01" value="18.00">
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            Ubicación en Estante
+                            <span style="font-weight:600;color:var(--primary)" id="prod_celda_label"></span>
+                            <button type="button" class="btn btn-sm" style="padding:1px 8px;margin-left:6px" onclick="limpiarCeldaProducto()">Quitar</button>
+                        </label>
+                        <div style="color:var(--text-secondary);font-size:.8rem;margin-bottom:6px">Haz clic en una celda para marcar dónde se guarda esta pieza.</div>
+                        <div id="prod_estante_selector" style="overflow:auto"></div>
+                        <input type="hidden" id="prod_celda_estante" value="">
                     </div>
                 </div>
             </div>
@@ -499,33 +581,6 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
     </div>
 </div>
 
-<!-- ============================================================
-     MODAL: NUEVA UNIDAD DE MEDIDA
-     ============================================================ -->
-<div class="modal-overlay" id="modalUnidad">
-    <div class="modal" style="max-width:400px">
-        <div class="modal-header">
-            <span class="modal-title">Nueva Unidad de Medida</span>
-            <button class="modal-close" onclick="Modal.close('modalUnidad')">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label class="form-label">Codigo *</label>
-                <input type="text" class="form-control" id="uni_codigo" placeholder="Ej: pln (plancha)" maxlength="10">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Nombre *</label>
-                <input type="text" class="form-control" id="uni_nombre" placeholder="Ej: Plancha">
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="Modal.close('modalUnidad')">Cancelar</button>
-            <button class="btn btn-primary" onclick="guardarUnidad()">
-                <i class="fa fa-save"></i> Guardar
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- ============================================================
      MODAL: NUEVA ENTRADA / SALIDA
@@ -644,12 +699,242 @@ $almacenSoloLectura = $permisoAlmacen !== 'completo';
     </div>
 </div>
 
+<!-- ============================================================
+     MODAL: IMPORTAR MATERIALES (.xlsx)
+     ============================================================ -->
+<div class="modal-overlay" id="modalImportar">
+    <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fa fa-file-excel"></i> Importar materiales desde Excel</span>
+            <button class="modal-close" onclick="Modal.close('modalImportar')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="font-size:.82rem;color:var(--text-secondary);margin-bottom:12px">
+                Archivo <strong>.xlsx</strong> con columnas: Código · SKU · Grupo · Material/Insumo · Unidad ·
+                Stock Actual · Stock Mínimo · Precio Compra · Precio Venta.
+                El <strong>Grupo</strong> crea la categoría, el <strong>SKU</strong> va como código de barras,
+                y los códigos ya existentes se omiten.
+            </div>
+            <div class="form-group">
+                <input type="file" class="form-control" id="imp_archivo" accept=".xlsx">
+            </div>
+            <div id="imp_resultado" style="font-size:.85rem"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="Modal.close('modalImportar')">Cerrar</button>
+            <button class="btn btn-primary" id="imp_btn" onclick="ejecutarImportacion()">
+                <i class="fa fa-upload"></i> Importar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     MODAL: CONFIRMACIÓN (reutilizable)
+     ============================================================ -->
+<div class="modal-overlay" id="modalConfirm">
+    <div class="modal" style="max-width:420px">
+        <div class="modal-header">
+            <span class="modal-title" id="confirmTitulo">Confirmar</span>
+            <button class="modal-close" onclick="Modal.close('modalConfirm')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="confirmMensaje" style="margin:0;color:var(--text-secondary)"></p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="Modal.close('modalConfirm')">Cancelar</button>
+            <button class="btn" id="confirmBtnOk" style="background:var(--danger);color:#fff" onclick="ejecutarConfirm()">
+                <i class="fa fa-trash"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+
 <?php ob_start(); ?>
 <script>
 const API_INV = 'api.php';
+
+// Modal de confirmación propio (reemplaza window.confirm).
+let _confirmCb = null;
+function abrirConfirm(mensaje, onOk, opts) {
+    opts = opts || {};
+    document.getElementById('confirmTitulo').textContent = opts.titulo || 'Confirmar';
+    document.getElementById('confirmMensaje').textContent = mensaje;
+    document.getElementById('confirmBtnOk').innerHTML = opts.btn || '<i class="fa fa-trash"></i> Eliminar';
+    _confirmCb = onOk;
+    Modal.open('modalConfirm');
+}
+function ejecutarConfirm() {
+    Modal.close('modalConfirm');
+    const cb = _confirmCb; _confirmCb = null;
+    if (cb) cb();
+}
+
+// Importar materiales desde Excel (.xlsx)
+function abrirModalImportar() {
+    document.getElementById('imp_archivo').value = '';
+    document.getElementById('imp_resultado').innerHTML = '';
+    Modal.open('modalImportar');
+}
+async function ejecutarImportacion() {
+    const file = document.getElementById('imp_archivo').files[0];
+    if (!file) return Toast.error('Selecciona un archivo .xlsx');
+    const btn = document.getElementById('imp_btn');
+    btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Importando...';
+    document.getElementById('imp_resultado').innerHTML = '';
+    const fd = new FormData();
+    fd.append('action', 'importar_materiales');
+    fd.append('archivo', file);
+    try {
+        const resp = await fetch(API_INV, { method: 'POST', body: fd });
+        const r = await resp.json();
+        if (r.ok) {
+            let html = `<div style="color:var(--success);font-weight:700">✓ Importación completada.</div>
+                <ul style="margin:8px 0 0 16px;color:var(--text-secondary)">
+                    <li>Materiales creados: <strong>${r.creados}</strong></li>
+                    <li>Omitidos (código ya existente): <strong>${r.omitidos}</strong></li>
+                    <li>Categorías nuevas: <strong>${r.cat_nuevas}</strong></li>
+                    <li>Unidades nuevas: <strong>${r.uni_nuevas}</strong></li>
+                </ul>`;
+            if (r.errores && r.errores.length)
+                html += `<div style="color:var(--danger);margin-top:8px">Avisos (${r.errores.length}):<br>${r.errores.slice(0,10).join('<br>')}</div>`;
+            document.getElementById('imp_resultado').innerHTML = html;
+            Toast.success(`${r.creados} materiales importados.`);
+            cargarProductos(); cargarCombos();
+        } else {
+            document.getElementById('imp_resultado').innerHTML = `<div style="color:var(--danger)">${r.error || 'Error al importar'}</div>`;
+            Toast.error(r.error || 'Error al importar');
+        }
+    } catch(e) {
+        document.getElementById('imp_resultado').innerHTML = `<div style="color:var(--danger)">${e.message || 'Error al importar'}</div>`;
+    } finally {
+        btn.disabled = false; btn.innerHTML = '<i class="fa fa-upload"></i> Importar';
+    }
+}
 const ALMACEN_SOLO_LECTURA = <?= json_encode($almacenSoloLectura) ?>;
 let combos = { categorias: [] };
 let todosProductos = [];
+
+// ===================== FEATURE ESTANTE (MVC) =====================
+// Espejo en JS de la Vista estante.view.php (misma geometria y colores) para
+// el selector clickeable del producto y la configuracion global (pestaña Celdas).
+let estanteCfg   = { columnas: 6, filas: 6, nombre: 'Estante Principal', grosor: 7, ancho: 360 };
+let prodCeldaSel = null;
+
+function colLetra(n) { let s = ''; while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); } return s; }
+
+function cajaEstanteSVG(x, y, w, h, activa, label, clickOnclick) {
+    const fill   = activa ? 'var(--primary)' : '#c9d6e5';
+    const stroke = activa ? 'var(--primary-dark, #ea580c)' : '#90a4bd';
+    const det    = activa ? 'rgba(255,255,255,.55)' : '#90a4bd';
+    const cx = x + w / 2;
+    let s = `<g style="${clickOnclick ? 'cursor:pointer' : ''}"${clickOnclick || ''}>`;
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
+    s += `<line x1="${x}" y1="${y + h * 0.3}" x2="${x + w}" y2="${y + h * 0.3}" stroke="${det}" stroke-width="1.2"/>`;
+    s += `<line x1="${cx}" y1="${y}" x2="${cx}" y2="${y + h * 0.3}" stroke="${det}" stroke-width="1.2"/>`;
+    if (label) { const lfs = Math.max(8, Math.min(16, Math.round(h * 0.42)));
+        s += `<text x="${cx}" y="${y + h * 0.68}" text-anchor="middle" font-size="${lfs}" font-weight="800" fill="#fff" style="pointer-events:none">${label}</text>`; }
+    return s + '</g>';
+}
+
+function construirEstanteSVG(cfg, celdaActiva, opts) {
+    opts = opts || {};
+    const clickable = !!opts.clickable;
+    const cols  = Math.max(1, cfg.columnas | 0);
+    const filas = Math.max(1, cfg.filas | 0);
+    const shelf = Math.min(24, Math.max(1, (cfg.grosor | 0) || 7));
+    const ancho = Math.min(1400, Math.max(240, (cfg.ancho | 0) || 360));
+    const gutterL = 24, gutterT = 20, pad = 12;
+    const cell = Math.max(18, (ancho - 2 * pad - gutterL - 2 * shelf) / cols);
+    const rowH = Math.max(26, Math.round(cell * 1.12));
+    const boxW = Math.max(12, cell - 8), boxH = Math.max(12, rowH - 14);
+    const fs = Math.max(9, Math.min(15, Math.round(cell * 0.28)));
+    const gridW = cols * cell, gridH = filas * rowH;
+    const leftPostX = pad + gutterL, x0 = leftPostX + shelf, rightPostX = x0 + gridW;
+    const frameTop = pad + gutterT, frameBot = frameTop + gridH + shelf;
+    const W = rightPostX + shelf + pad, H = frameBot + pad;
+    const over = 3, railL = leftPostX - over, railW = (rightPostX + shelf) - railL + over;
+    const DARK = '#334155';
+    let s = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;height:auto;font-family:inherit">`;
+    for (let c = 1; c <= cols; c++) {
+        const cx = x0 + (c - 1) * cell + cell / 2;
+        s += `<text x="${cx}" y="${frameTop - 7}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="#64748b">${colLetra(c)}</text>`;
+    }
+    for (let i = 0; i <= filas; i++) {
+        const ry = frameTop + i * rowH;
+        s += `<rect x="${railL}" y="${ry}" width="${railW}" height="${shelf}" rx="2" fill="${DARK}"/>`;
+    }
+    s += `<rect x="${leftPostX}" y="${frameTop}" width="${shelf}" height="${gridH + shelf}" rx="2" fill="${DARK}"/>`;
+    s += `<rect x="${rightPostX}" y="${frameTop}" width="${shelf}" height="${gridH + shelf}" rx="2" fill="${DARK}"/>`;
+    for (let f = filas; f >= 1; f--) {
+        const rowIdx = filas - f;
+        const bandTop = frameTop + rowIdx * rowH + shelf;
+        const shelfY = frameTop + (rowIdx + 1) * rowH;
+        const boxY = shelfY - boxH;
+        s += `<text x="${pad + gutterL - 8}" y="${bandTop + (rowH - shelf) / 2 + 4}" text-anchor="middle" font-size="${fs}" font-weight="700" fill="#64748b">${f}</text>`;
+        for (let c = 1; c <= cols; c++) {
+            const boxX = x0 + (c - 1) * cell + (cell - boxW) / 2, code = colLetra(c) + f;
+            const activa = celdaActiva && celdaActiva.toUpperCase() === code;
+            const click = clickable ? ` onclick="seleccionarCeldaProducto('${code}')"` : '';
+            s += cajaEstanteSVG(boxX, boxY, boxW, boxH, activa, activa ? code : '', click);
+        }
+    }
+    return s + '</svg>';
+}
+
+async function cargarEstanteCfg() {
+    try {
+        const d = await apiGet(API_INV + '?action=estante_config');
+        if (d.ok) estanteCfg = { columnas: d.columnas, filas: d.filas, nombre: d.nombre, grosor: d.grosor, ancho: d.ancho };
+    } catch (e) {}
+    llenarFormEstante();
+    previewEstante();
+}
+
+function renderSelectorProducto() {
+    document.getElementById('prod_estante_selector').innerHTML = construirEstanteSVG(estanteCfg, prodCeldaSel, { clickable: true });
+    document.getElementById('prod_celda_estante').value = prodCeldaSel || '';
+    document.getElementById('prod_celda_label').textContent = prodCeldaSel ? ('· ' + prodCeldaSel) : '';
+}
+function seleccionarCeldaProducto(code) { prodCeldaSel = (prodCeldaSel === code) ? null : code; renderSelectorProducto(); }
+function limpiarCeldaProducto() { prodCeldaSel = null; renderSelectorProducto(); }
+
+// ---- Pestaña Celdas: configuracion global ----
+function llenarFormEstante() {
+    const el = id => document.getElementById(id);
+    if (!el('est_columnas')) return;
+    el('est_nombre').value   = estanteCfg.nombre || '';
+    el('est_ancho').value    = estanteCfg.ancho;
+    el('est_grosor').value   = estanteCfg.grosor;
+    el('est_columnas').value = estanteCfg.columnas;
+    el('est_filas').value    = estanteCfg.filas;
+}
+function leerFormEstante() {
+    const num = (id, min, max, def) => Math.min(max, Math.max(min, parseInt(document.getElementById(id).value || def, 10) || def));
+    return {
+        nombre:   (document.getElementById('est_nombre').value || '').trim(),
+        ancho:    num('est_ancho', 240, 1400, 360),
+        grosor:   num('est_grosor', 1, 24, 7),
+        columnas: num('est_columnas', 1, 26, 6),
+        filas:    num('est_filas', 1, 99, 6),
+    };
+}
+function previewEstante() {
+    if (!document.getElementById('est_preview')) return;
+    const cfg = leerFormEstante();
+    document.getElementById('est_preview').innerHTML = construirEstanteSVG(cfg, null, {});
+    document.getElementById('est_preview_titulo').textContent = cfg.nombre || 'Vista previa';
+}
+async function guardarEstante() {
+    const cfg = leerFormEstante();
+    const r = await apiPost(API_INV, { action: 'estante_config_guardar', ...cfg });
+    if (r.ok) {
+        estanteCfg = { columnas: r.columnas, filas: r.filas, nombre: r.nombre, grosor: r.grosor, ancho: r.ancho };
+        llenarFormEstante(); previewEstante();
+        Toast.success('Configuración del estante guardada.');
+    } else Toast.error(r.error || 'No se pudo guardar la configuracion.');
+}
+// =================== FIN FEATURE ESTANTE =========================
 
 function irDetalleProducto(id) {
     window.location.href = `producto.php?id=${id}`;
@@ -657,6 +942,7 @@ function irDetalleProducto(id) {
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
+    cargarEstanteCfg();
     cargarCombos().then(() => {
         cargarProductos();
         cargarRepuestos();
@@ -699,8 +985,8 @@ document.addEventListener('DOMContentLoaded', () => {
         salDebTimer = setTimeout(cargarSalidas, 350);
     });
 
-    // Foco automático en el campo de escaneo al cargar
-    document.getElementById('scanBarra').focus();
+    // Foco automático en el campo de búsqueda/escaneo al cargar
+    document.getElementById('prodSearch').focus();
 });
 
 // ══════════════════════════════════════════════════
@@ -708,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ══════════════════════════════════════════════════
 async function buscarPorCodigo(codigo) {
     codigo = codigo.trim();
-    const input = document.getElementById('scanBarra');
+    const input = document.getElementById('prodSearch');
     if (!codigo) return;
     try {
         const d = await apiGet(`${API_INV}?action=productos_listar&q=${encodeURIComponent(codigo)}`);
@@ -719,23 +1005,23 @@ async function buscarPorCodigo(codigo) {
         );
 
         if (exacto) {
+            // Coincidencia exacta (típico del escáner): abrir kardex y limpiar para el siguiente escaneo
             Toast.success(`${exacto.nombre} · Stock: ${parseFloat(exacto.stock_actual||0).toFixed(2)} ${exacto.unidad||''}`);
             verKardexProducto(exacto.id);
+            input.value = '';
+            input.focus();
         } else if (lista.length > 0) {
-            document.getElementById('prodSearch').value = codigo;
+            // Varios resultados: dejar el texto como filtro en la tabla
+            document.querySelector('.tab[data-target="tabProductos"]')?.click();
             cargarProductos();
             Toast.info(`${lista.length} resultado${lista.length>1?'s':''} para "${codigo}"`);
-            document.querySelector('.tab[data-target="tabProductos"]')?.click();
         } else {
             Toast.error(`Código "${codigo}" no encontrado`);
             input.select();
-            return;
         }
     } catch(e) {
         Toast.error('Error al buscar código');
     }
-    input.value = '';
-    input.focus();
 }
 
 
@@ -756,6 +1042,7 @@ async function cargarCombos() {
         document.getElementById('prod_afectacion_igv').innerHTML =
             (d.afectaciones || []).map(a => `<option value="${a.codigo}">${a.codigo} - ${a.descripcion}</option>`).join('');
         renderUnidadesMedida();
+        renderListaUnidades();
 
         const dp = await apiGet(API_INV + '?action=productos_listar');
         todosProductos = dp.productos || [];
@@ -775,10 +1062,30 @@ function renderUnidadesMedida(seleccionar) {
     if (actual) sel.value = actual;
 }
 
-function abrirModalUnidad() {
-    document.getElementById('uni_codigo').value = '';
-    document.getElementById('uni_nombre').value = '';
-    Modal.open('modalUnidad');
+// Lista de unidades de medida en la pestaña Categorias.
+function renderListaUnidades() {
+    const tb = document.getElementById('listaUnidades');
+    if (!tb) return;
+    const us = combos.unidades_medida || [];
+    const accion = u => ALMACEN_SOLO_LECTURA ? '' :
+        `<button class="btn btn-sm" style="background:var(--danger);color:#fff" title="Eliminar" onclick="eliminarUnidad(${u.id})"><i class="fa fa-trash"></i></button>`;
+    tb.innerHTML = us.length
+        ? us.map(u => `<tr><td><strong>${u.codigo}</strong></td><td>${u.nombre}</td><td class="text-right">${accion(u)}</td></tr>`).join('')
+        : '<tr><td colspan="3" class="text-center text-muted">Sin unidades registradas.</td></tr>';
+}
+
+function eliminarUnidad(id) {
+    abrirConfirm('¿Eliminar esta unidad de medida?', async () => {
+        try {
+            const r = await apiPost(API_INV, { action: 'unidad_medida_eliminar', id });
+            if (r.ok) {
+                combos.unidades_medida = (combos.unidades_medida || []).filter(u => u.id != id);
+                renderUnidadesMedida();
+                renderListaUnidades();
+                Toast.success('Unidad eliminada.');
+            } else Toast.error(r.error || 'No se pudo eliminar.');
+        } catch(e) { Toast.error(e.message || 'Error al eliminar'); }
+    }, { titulo: 'Eliminar unidad de medida' });
 }
 
 async function guardarUnidad() {
@@ -790,9 +1097,11 @@ async function guardarUnidad() {
         if (r.ok) {
             combos.unidades_medida = combos.unidades_medida || [];
             combos.unidades_medida.push({ id: r.id, codigo: r.codigo, nombre: r.nombre });
-            renderUnidadesMedida(r.codigo);
+            renderUnidadesMedida();
+            renderListaUnidades();
+            document.getElementById('uni_codigo').value = '';
+            document.getElementById('uni_nombre').value = '';
             Toast.success('Unidad agregada.');
-            Modal.close('modalUnidad');
         } else Toast.error(r.error || 'Error al guardar');
     } catch(e) { Toast.error(e.message || 'Error al guardar'); }
 }
@@ -829,7 +1138,7 @@ async function cargarProductos() {
                     <strong style="color:${esCritico?'var(--danger)':'inherit'}">${Math.round(p.stock_actual)}</strong>
                     ${esCritico ? ' <i class="fa fa-triangle-exclamation" style="color:var(--danger);font-size:.8rem" title="Stock critico"></i>' : ''}
                 </td>
-                <td style="font-size:.82rem">${Math.round(p.stock_minimo)} / ${parseFloat(p.stock_maximo)>0 ? Math.round(p.stock_maximo) : 'inf'}</td>
+                <td style="font-size:.82rem">${Math.round(p.stock_minimo)}</td>
                 <td>${formatMoney(p.precio_venta)}</td>
                 <td>${formatMoney(valor)}</td>
             </tr>`;
@@ -849,15 +1158,14 @@ async function abrirModalProducto() {
     document.getElementById('prod_product_type').value = 'product';
     document.getElementById('prod_unidad').value      = 'unidad';
     document.getElementById('prod_unidad_codigo').value = 'NIU';
-    document.getElementById('prod_afectacion_igv').value = '10';
+    document.getElementById('prod_afectacion_igv').value = '20';
     document.getElementById('prod_metodo').value      = 'promedio';
-    document.getElementById('prod_ubicacion').value   = '';
     document.getElementById('prod_stock_min').value    = '0';
-    document.getElementById('prod_stock_max').value    = '0';
+    document.getElementById('prod_precio_compra').value = '0';
     document.getElementById('prod_precio_venta').value = '0';
-    document.getElementById('prod_porcentaje_igv').value = '18.00';
     document.getElementById('prod_incluye_igv').checked = true;
     document.getElementById('prod_es_repuesto').checked = false;
+    prodCeldaSel = null; renderSelectorProducto();
     document.getElementById('prod_categoria_id').innerHTML =
         '<option value="">— Sin categoria —</option>' +
         combos.categorias.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
@@ -918,15 +1226,14 @@ async function editarProducto(id) {
         document.getElementById('prod_product_type').value = p.product_type || 'product';
         document.getElementById('prod_unidad').value      = p.unidad;
         document.getElementById('prod_unidad_codigo').value = p.unidad_codigo || 'NIU';
-        document.getElementById('prod_afectacion_igv').value = p.afectacion_igv_codigo || '10';
+        document.getElementById('prod_afectacion_igv').value = p.afectacion_igv_codigo || '20';
         document.getElementById('prod_metodo').value      = p.metodo_valuacion;
-        document.getElementById('prod_ubicacion').value   = p.ubicacion || '';
         document.getElementById('prod_stock_min').value    = p.stock_minimo;
-        document.getElementById('prod_stock_max').value    = p.stock_maximo;
+        document.getElementById('prod_precio_compra').value = p.precio_compra ?? 0;
         document.getElementById('prod_precio_venta').value = p.precio_venta ?? 0;
-        document.getElementById('prod_porcentaje_igv').value = p.porcentaje_igv ?? 18;
         document.getElementById('prod_incluye_igv').checked = !!Number(p.incluye_igv ?? 1);
         document.getElementById('prod_es_repuesto').checked = p.es_repuesto;
+        prodCeldaSel = p.celda_estante || null; renderSelectorProducto();
         const preview = document.getElementById('prod_img_preview');
         document.getElementById('prod_imagen').value = '';
         if (p.imagen) {
@@ -962,11 +1269,10 @@ async function guardarProducto() {
     fd.append('unidad_codigo', document.getElementById('prod_unidad_codigo').value);
     fd.append('afectacion_igv_codigo', document.getElementById('prod_afectacion_igv').value);
     fd.append('metodo_valuacion', document.getElementById('prod_metodo').value);
-    fd.append('ubicacion', document.getElementById('prod_ubicacion').value);
+    fd.append('celda_estante', document.getElementById('prod_celda_estante').value);
     fd.append('stock_minimo', document.getElementById('prod_stock_min').value);
-    fd.append('stock_maximo', document.getElementById('prod_stock_max').value);
+    fd.append('precio_compra', document.getElementById('prod_precio_compra').value);
     fd.append('precio_venta', document.getElementById('prod_precio_venta').value);
-    fd.append('porcentaje_igv', document.getElementById('prod_porcentaje_igv').value);
     fd.append('incluye_igv', document.getElementById('prod_incluye_igv').checked ? '1' : '0');
     fd.append('product_type', document.getElementById('prod_product_type').value);
     fd.append('es_repuesto', document.getElementById('prod_es_repuesto').checked ? '1' : '0');
@@ -1049,7 +1355,7 @@ async function cargarKardex() {
             <td style="white-space:nowrap">${formatDate(m.fecha)}</td>
             <td><span class="badge ${tipoColor[m.tipo]||'badge-normal'}">${m.tipo}</span></td>
             <td style="font-size:.8rem">${m.referencia_tipo || '—'}</td>
-            <td style="text-align:right"><strong>${m.tipo==='salida'?'- ':'+'}${m.cantidad}</strong></td>
+            <td style="text-align:right"><strong>${m.tipo==='salida'?'- ':'+'}${parseFloat(m.cantidad).toFixed(2)}</strong></td>
             <td style="text-align:right">${formatMoney(m.precio_unitario)}</td>
             <td style="text-align:right">${m.saldo_cantidad}</td>
             <td style="text-align:right">${formatMoney(m.saldo_valor)}</td>
@@ -1126,7 +1432,7 @@ async function cargarMovimientos(tipo) {
             <td style="white-space:nowrap">${formatDate(m.fecha)}</td>
             <td><code>${m.producto_codigo}</code></td>
             <td>${m.producto_nombre}</td>
-            <td style="text-align:right"><strong>${m.cantidad}</strong></td>
+            <td style="text-align:right"><strong>${parseFloat(m.cantidad).toFixed(2)}</strong></td>
             <td style="text-align:right">${formatMoney(m.precio_unitario)}</td>
             <td style="text-align:right">${m.saldo_cantidad}</td>
             <td style="font-size:.8rem">${m.usuario_nombre || '—'}</td>
@@ -1276,7 +1582,7 @@ async function cargarRepuestos() {
                     <strong style="color:${esCritico?'var(--danger)':'inherit'}">${Math.round(p.stock_actual)}</strong>
                     ${esCritico ? ' <i class="fa fa-triangle-exclamation" style="color:var(--danger);font-size:.8rem" title="Stock critico"></i>' : ''}
                 </td>
-                <td style="font-size:.82rem">${Math.round(p.stock_minimo)} / ${parseFloat(p.stock_maximo)>0 ? Math.round(p.stock_maximo) : 'inf'}</td>
+                <td style="font-size:.82rem">${Math.round(p.stock_minimo)}</td>
                 <td>${formatMoney(p.precio_venta)}</td>
                 <td>${formatMoney(valor)}</td>
             </tr>`;

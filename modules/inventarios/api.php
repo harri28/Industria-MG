@@ -3,6 +3,7 @@ ini_set('display_errors', 0);
 error_reporting(0);
 require_once __DIR__ . '/../../config/session.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/estante/controllers/EstanteController.php';
 startAppSession();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -54,14 +55,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $nivelAlmacen = nivelPermiso('inventarios');
 if ($nivelAlmacen === 'ninguno') {
-    jsonResponse(['error' => 'No tienes permisos para acceder al módulo de Almacén.'], 403);
+    jsonResponse(['error' => 'No tienes permisos para acceder al módulo de Inventario.'], 403);
 }
-$accionesEscrituraAlmacen = ['producto_guardar', 'producto_toggle', 'ajuste_stock', 'categoria_guardar', 'categoria_eliminar', 'unidad_medida_guardar'];
+$accionesEscrituraAlmacen = ['producto_guardar', 'producto_toggle', 'ajuste_stock', 'categoria_guardar', 'categoria_eliminar', 'unidad_medida_guardar', 'unidad_medida_eliminar', 'estante_config_guardar', 'estante_celda_guardar', 'importar_materiales'];
 if ($nivelAlmacen === 'lectura' && in_array($action, $accionesEscrituraAlmacen)) {
-    jsonResponse(['error' => 'Tu rol tiene acceso de solo lectura a Almacén.'], 403);
+    jsonResponse(['error' => 'Tu rol tiene acceso de solo lectura a Inventario.'], 403);
 }
 
 $db = getDB();
+
+// Feature Estante (MVC): el controlador maneja estante_* y responde via jsonResponse (que corta la ejecucion).
+try {
+    EstanteController::handle($action, $input, $db);
+} catch (Exception $e) {
+    jsonResponse(['error' => $e->getMessage()], 400);
+}
 
 try { switch ($action) {
 
@@ -188,10 +196,12 @@ try { switch ($action) {
                 $imagen_sql = ', imagen=NULL';
             }
 
+            $afect = ($input['afectacion_igv_codigo'] ?? null) ?: '20';
+            $pct   = $afect === '10' ? 18 : 0; // exonerado/inafecto/exportacion => 0%
             $db->prepare("UPDATE productos SET
                 codigo=:cod, nombre=:nom, descripcion=:desc,
                 categoria_id=:cat, unidad=:uni,
-                stock_minimo=:smin, stock_maximo=:smax,
+                stock_minimo=:smin,
                 precio_venta=:pv,
                 metodo_valuacion=:met, es_repuesto=:rep,
                 codigo_interno=:codigo_interno,
@@ -202,7 +212,8 @@ try { switch ($action) {
                 porcentaje_igv=:porcentaje_igv,
                 incluye_igv=:incluye_igv,
                 product_type=:product_type,
-                ubicacion=:ubicacion
+                precio_compra=:pc,
+                celda_estante=:celda_estante
                 {$imagen_sql},
                 updated_at=NOW()
                 WHERE id=:id")->execute(array_merge([
@@ -213,7 +224,6 @@ try { switch ($action) {
                 ':cat'  => ($input['categoria_id'] ?? null) ?: null,
                 ':uni'  => $input['unidad'] ?? 'unidad',
                 ':smin' => (float)($input['stock_minimo'] ?? 0),
-                ':smax' => (float)($input['stock_maximo'] ?? 0),
                 ':pv'   => (float)($input['precio_venta'] ?? 0),
                 ':met'  => $input['metodo_valuacion'] ?? 'promedio',
                 ':rep'  => (int)filter_var($input['es_repuesto'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -221,11 +231,12 @@ try { switch ($action) {
                 ':codigo_barras' => ($input['codigo_barras'] ?? null) ?: null,
                 ':codigo_sunat' => ($input['codigo_sunat'] ?? null) ?: '00000000',
                 ':unidad_codigo' => ($input['unidad_codigo'] ?? null) ?: 'NIU',
-                ':afectacion_igv_codigo' => ($input['afectacion_igv_codigo'] ?? null) ?: '10',
-                ':porcentaje_igv' => (float)($input['porcentaje_igv'] ?? 18),
+                ':afectacion_igv_codigo' => $afect,
+                ':porcentaje_igv' => $pct,
                 ':incluye_igv' => (int)filter_var($input['incluye_igv'] ?? true, FILTER_VALIDATE_BOOLEAN),
                 ':product_type' => ($input['product_type'] ?? null) ?: 'product',
-                ':ubicacion' => ($input['ubicacion'] ?? null) ?: null,
+                ':pc' => (float)($input['precio_compra'] ?? 0),
+                ':celda_estante' => Estante::normalizarCelda($input['celda_estante'] ?? null),
             ], $imagen_params));
 
             $db->prepare("
@@ -244,10 +255,10 @@ try { switch ($action) {
                 SET afectacion_igv_id = a.id
                 FROM fe_tipos_afectacion_igv a
                 WHERE p.id = :id
-                  AND a.codigo = COALESCE(NULLIF(:afectacion, ''), '10')
+                  AND a.codigo = COALESCE(NULLIF(:afectacion, ''), '20')
             ")->execute([
                 ':id' => $id,
-                ':afectacion' => ($input['afectacion_igv_codigo'] ?? null) ?: '10',
+                ':afectacion' => $afect,
             ]);
         } else {
             $codigo = trim($input['codigo'] ?? '');
@@ -256,15 +267,17 @@ try { switch ($action) {
             $stmt->execute([':cod' => $codigo]);
             if ($stmt->fetch()) $codigo = generarCodigo('MAT', 'productos', 'codigo');
             $input['codigo'] = $codigo;
+            $afect = ($input['afectacion_igv_codigo'] ?? null) ?: '20';
+            $pct   = $afect === '10' ? 18 : 0; // exonerado/inafecto/exportacion => 0%
 
             $stmt = $db->prepare("INSERT INTO productos
                 (codigo, nombre, descripcion, categoria_id, unidad,
-                 stock_minimo, stock_maximo, precio_venta, metodo_valuacion, es_repuesto, imagen,
+                 stock_minimo, precio_venta, precio_compra, metodo_valuacion, es_repuesto, imagen,
                  codigo_interno, codigo_barras, codigo_sunat, unidad_codigo,
-                 afectacion_igv_codigo, porcentaje_igv, incluye_igv, product_type, ubicacion)
-                VALUES (:cod,:nom,:desc,:cat,:uni,:smin,:smax,:pv,:met,:rep,:img,
+                 afectacion_igv_codigo, porcentaje_igv, incluye_igv, product_type, celda_estante)
+                VALUES (:cod,:nom,:desc,:cat,:uni,:smin,:pv,:pc,:met,:rep,:img,
                         :codigo_interno,:codigo_barras,:codigo_sunat,:unidad_codigo,
-                        :afectacion_igv_codigo,:porcentaje_igv,:incluye_igv,:product_type,:ubicacion) RETURNING id");
+                        :afectacion_igv_codigo,:porcentaje_igv,:incluye_igv,:product_type,:celda_estante) RETURNING id");
             $stmt->execute([
                 ':cod'  => trim($input['codigo']),
                 ':nom'  => trim($input['nombre']),
@@ -272,7 +285,6 @@ try { switch ($action) {
                 ':cat'  => ($input['categoria_id'] ?? null) ?: null,
                 ':uni'  => $input['unidad'] ?? 'unidad',
                 ':smin' => (float)($input['stock_minimo'] ?? 0),
-                ':smax' => (float)($input['stock_maximo'] ?? 0),
                 ':pv'   => (float)($input['precio_venta'] ?? 0),
                 ':met'  => $input['metodo_valuacion'] ?? 'promedio',
                 ':rep'  => (int)filter_var($input['es_repuesto'] ?? false, FILTER_VALIDATE_BOOLEAN),
@@ -281,11 +293,12 @@ try { switch ($action) {
                 ':codigo_barras' => ($input['codigo_barras'] ?? null) ?: null,
                 ':codigo_sunat' => ($input['codigo_sunat'] ?? null) ?: '00000000',
                 ':unidad_codigo' => ($input['unidad_codigo'] ?? null) ?: 'NIU',
-                ':afectacion_igv_codigo' => ($input['afectacion_igv_codigo'] ?? null) ?: '10',
-                ':porcentaje_igv' => (float)($input['porcentaje_igv'] ?? 18),
+                ':afectacion_igv_codigo' => $afect,
+                ':porcentaje_igv' => $pct,
                 ':incluye_igv' => (int)filter_var($input['incluye_igv'] ?? true, FILTER_VALIDATE_BOOLEAN),
                 ':product_type' => ($input['product_type'] ?? null) ?: 'product',
-                ':ubicacion' => ($input['ubicacion'] ?? null) ?: null,
+                ':pc' => (float)($input['precio_compra'] ?? 0),
+                ':celda_estante' => Estante::normalizarCelda($input['celda_estante'] ?? null),
             ]);
             $id = (int)$stmt->fetchColumn();
 
@@ -305,10 +318,10 @@ try { switch ($action) {
                 SET afectacion_igv_id = a.id
                 FROM fe_tipos_afectacion_igv a
                 WHERE p.id = :id
-                  AND a.codigo = COALESCE(NULLIF(:afectacion, ''), '10')
+                  AND a.codigo = COALESCE(NULLIF(:afectacion, ''), '20')
             ")->execute([
                 ':id' => $id,
-                ':afectacion' => ($input['afectacion_igv_codigo'] ?? null) ?: '10',
+                ':afectacion' => $afect,
             ]);
         }
         jsonResponse(['ok' => true, 'id' => $id]);
@@ -505,6 +518,24 @@ try { switch ($action) {
         $stmt = $db->prepare("INSERT INTO unidades_medida (codigo, nombre) VALUES (:cod, :nom) RETURNING id");
         $stmt->execute([':cod' => $codigo, ':nom' => $nombre]);
         jsonResponse(['ok' => true, 'id' => (int)$stmt->fetchColumn(), 'codigo' => $codigo, 'nombre' => $nombre]);
+
+    case 'unidad_medida_eliminar':
+        $uid = (int)($input['id'] ?? 0);
+        if ($uid < 1) jsonResponse(['error' => 'Unidad invalida.'], 400);
+        $db->prepare("UPDATE unidades_medida SET activo = false WHERE id = :id")->execute([':id' => $uid]);
+        jsonResponse(['ok' => true]);
+
+    case 'importar_materiales':
+        if (!isset($_FILES['archivo']) || $_FILES['archivo']['error'] !== UPLOAD_ERR_OK)
+            jsonResponse(['error' => 'No se recibió el archivo Excel.'], 400);
+        $ext = strtolower(pathinfo($_FILES['archivo']['name'], PATHINFO_EXTENSION));
+        if ($ext !== 'xlsx')
+            jsonResponse(['error' => 'El archivo debe ser .xlsx (Excel).'], 400);
+        if ($_FILES['archivo']['size'] > 10 * 1024 * 1024)
+            jsonResponse(['error' => 'El archivo no puede superar 10 MB.'], 400);
+        require_once __DIR__ . '/import/importador.php';
+        $resumen = importarMateriales($db, $_FILES['archivo']['tmp_name']);
+        jsonResponse(['ok' => true] + $resumen);
 
     default:
         jsonResponse(['error' => 'Accion no reconocida.'], 400);

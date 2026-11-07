@@ -3,6 +3,7 @@ $id = (int)($_GET['id'] ?? 0);
 if (!$id) { header('Location: index.php'); exit; }
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/estante/views/estante.view.php';
 $db = getDB();
 
 $stmt = $db->prepare("
@@ -15,14 +16,14 @@ $p = $stmt->fetch();
 if (!$p) { header('Location: index.php'); exit; }
 
 $page_title      = $p['codigo'] . ' — ' . $p['nombre'];
-$page_breadcrumb = '<a href="index.php">Almacén</a> <span>/</span> Detalle';
+$page_breadcrumb = '<a href="index.php">Inventario</a> <span>/</span> Detalle';
 
 require_once __DIR__ . '/../../includes/header.php';
 
 $permisoAlmacen = nivelPermiso('inventarios');
 if ($permisoAlmacen === 'ninguno') {
     echo '<div class="alert alert-danger" style="margin:20px">
-        <i class="fa fa-lock"></i> No tienes permisos para acceder al módulo de Almacén. Contacta a un administrador.
+        <i class="fa fa-lock"></i> No tienes permisos para acceder al módulo de Inventario. Contacta a un administrador.
     </div>';
     require_once __DIR__ . '/../../includes/footer.php';
     exit;
@@ -37,7 +38,7 @@ $valorTotal = (float)$p['stock_actual'] * (float)$p['precio_venta'];
 
 <div class="toolbar">
     <div class="toolbar-left">
-        <a href="index.php" class="btn btn-secondary btn-sm"><i class="fa fa-arrow-left"></i> Volver a Almacén</a>
+        <a href="index.php" class="btn btn-secondary btn-sm"><i class="fa fa-arrow-left"></i> Volver a Inventario</a>
     </div>
     <?php if (!$almacenSoloLectura): ?>
     <div class="toolbar-right">
@@ -81,47 +82,6 @@ $valorTotal = (float)$p['stock_actual'] * (float)$p['precio_venta'];
 
             <div style="display:flex;flex-direction:column;gap:10px">
                 <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Categoría:</span>
-                    <span style="font-weight:600"><?= esc($p['categoria_nombre'] ?? '—') ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Ubicación:</span>
-                    <span style="font-weight:600"><?= esc($p['ubicacion'] ?: '—') ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Unidad:</span>
-                    <span style="font-weight:600"><?= esc($p['unidad']) ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Stock Actual:</span>
-                    <span style="font-weight:700;color:<?= $esCritico ? 'var(--danger)' : 'inherit' ?>">
-                        <?= number_format((float)$p['stock_actual'], 2) ?>
-                    </span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Mín / Máx:</span>
-                    <span style="font-weight:600">
-                        <?= number_format((float)$p['stock_minimo'], 0) ?> /
-                        <?= (float)$p['stock_maximo'] > 0 ? number_format((float)$p['stock_maximo'], 0) : '∞' ?>
-                    </span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Precio de Venta:</span>
-                    <span style="font-weight:600"><?= formatMoney((float)$p['precio_venta']) ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Precio Promedio:</span>
-                    <span style="font-weight:600"><?= formatMoney((float)$p['precio_promedio']) ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Valor en Stock:</span>
-                    <span style="font-weight:600"><?= formatMoney($valorTotal) ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
-                    <span class="text-muted" style="min-width:150px">Método Valuación:</span>
-                    <span style="font-weight:600"><?= esc(ucfirst($p['metodo_valuacion'])) ?></span>
-                </div>
-                <div style="display:flex;gap:6px">
                     <span class="text-muted" style="min-width:150px">Código de Barras:</span>
                     <span style="font-weight:600"><?= esc($p['codigo_barras'] ?: '—') ?></span>
                 </div>
@@ -130,10 +90,61 @@ $valorTotal = (float)$p['stock_actual'] * (float)$p['precio_venta'];
                     <span style="font-weight:600"><?= esc($p['codigo_interno'] ?: '—') ?></span>
                 </div>
                 <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Categoría:</span>
+                    <span style="font-weight:600"><?= esc($p['categoria_nombre'] ?? '—') ?></span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Unidad de Medida:</span>
+                    <span style="font-weight:600"><?= esc($p['unidad']) ?></span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Ubicación:</span>
+                    <span style="font-weight:600"><?= esc($p['ubicacion'] ?: '—') ?></span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Stock Actual:</span>
+                    <span style="font-weight:700;color:<?= $esCritico ? 'var(--danger)' : 'inherit' ?>">
+                        <?= number_format((float)$p['stock_actual'], 2) ?>
+                    </span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Stock Mínimo:</span>
+                    <span style="font-weight:600"><?= number_format((float)$p['stock_minimo'], 0) ?></span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Precio de Venta:</span>
+                    <span style="font-weight:600"><?= formatMoney((float)$p['precio_venta']) ?></span>
+                </div>
+                <div style="display:flex;gap:6px">
+                    <span class="text-muted" style="min-width:150px">Valor en Stock:</span>
+                    <span style="font-weight:600"><?= formatMoney($valorTotal) ?></span>
+                </div>
+                <div style="display:flex;gap:6px">
                     <span class="text-muted" style="min-width:150px">Actualizado:</span>
                     <span style="font-weight:600"><?= $p['updated_at'] ? date('d/m/Y H:i', strtotime($p['updated_at'])) : '—' ?></span>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<?php
+$estanteCfg   = Estante::obtenerConfig($db);
+$celdaProd    = $p['celda_estante'] ?? null;
+?>
+<div class="card" style="margin-top:18px">
+    <div class="card-header">
+        <span class="card-title"><i class="fa fa-table-cells"></i> <?= esc($estanteCfg['nombre'] ?? 'Ubicación en Estante') ?></span>
+    </div>
+    <div class="card-body" style="display:flex;gap:28px;align-items:center;flex-wrap:wrap">
+        <div style="flex:0 0 auto"><?= renderEstanteSVG($estanteCfg, $celdaProd) ?></div>
+        <div style="font-size:.9rem">
+            <?php if ($celdaProd): ?>
+                <div style="color:var(--text-secondary)">Celda asignada</div>
+                <div style="font-size:1.6rem;font-weight:800;color:var(--primary)"><?= esc($celdaProd) ?></div>
+            <?php else: ?>
+                <div style="color:var(--text-secondary)">Este producto no tiene una celda asignada en el estante.</div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
