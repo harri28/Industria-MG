@@ -956,7 +956,7 @@ function renderProductosVenta(lista) {
                 <div class="text-xs text-muted">${esc(p.codigo)} - <span style="background:${badgeBg};color:${badgeColor};padding:1px 6px;border-radius:4px;font-size:.68rem">${badgeLabel}</span></div>
             </div>
             <div class="text-right" style="flex-shrink:0">
-                <div class="text-sm font-semibold" style="color:${sinStock?'var(--danger)':'var(--text-primary)'}">${esServicio ? 'Servicio' : `${p.stock_actual} ${esc(p.unidad)}`}</div>
+                <div class="text-sm font-semibold" style="color:${sinStock?'var(--danger)':'var(--text-primary)'}">${esServicio ? 'Servicio' : `${parseFloat(p.stock_actual).toFixed(2)} ${esc(p.unidad)}`}</div>
                 <div class="text-xs text-muted">${formatMoney(p.precio_venta)}</div>
             </div>
             ${!sinStock ? '<i class="fa fa-plus-circle" style="color:var(--primary);font-size:1.1rem;flex-shrink:0"></i>' : '<i class="fa fa-ban" style="color:var(--danger);font-size:1rem;flex-shrink:0"></i>'}
@@ -1011,7 +1011,7 @@ function renderCarrito() {
         <td class="text-right text-sm ${parseFloat(it.stock)<=0&&!it.esServicio?'text-danger':'text-muted'}">${it.esServicio ? 'Servicio' : it.stock}</td>
         <td class="text-right">
             <input type="number" class="form-control text-right" style="width:80px"
-                   value="${it.cantidad}" min="0.001" ${it.esServicio ? '' : `max="${it.stock}"`} step="0.001"
+                   value="${it.cantidad}" min="0.01" ${it.esServicio ? '' : `max="${it.stock}"`} step="0.01"
                    onchange="updateCarritoItem(${idx},'cantidad',this.value)">
         </td>
         <td class="text-right">
@@ -1033,7 +1033,9 @@ function renderCarrito() {
 }
 
 function updateCarritoItem(idx, field, value) {
-    carritoVenta[idx][field] = parseFloat(value) || 0;
+    let v = parseFloat(value) || 0;
+    if (field === 'cantidad') v = Math.round(v * 100) / 100; // 2 decimales
+    carritoVenta[idx][field] = v;
     renderCarrito();
 }
 
