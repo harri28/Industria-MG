@@ -4,8 +4,22 @@ $page_breadcrumb = '<span>Operaciones</span> <span>></span> Ventas';
 require_once __DIR__ . '/../../includes/header.php';
 $db = getDB();
 $tecnicos = $db->query("SELECT id, nombre FROM usuarios WHERE activo ORDER BY nombre")->fetchAll();
-$empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccion_fiscal, telefono, tax_enabled FROM empresa_emisora WHERE activo ORDER BY id LIMIT 1")->fetch() ?: [];
+$empresaVenta = $db->query("SELECT razon_social, nombre_comercial, ruc, direccion_fiscal, telefono, tax_enabled, logo_path FROM empresa_emisora WHERE activo ORDER BY id LIMIT 1")->fetch() ?: [];
 $taxEnabledVenta = array_key_exists('tax_enabled', $empresaVenta) ? filter_var($empresaVenta['tax_enabled'], FILTER_VALIDATE_BOOLEAN) : true;
+$logoCotBase64 = null;
+$logoCandidates = [];
+if (!empty($empresaVenta['logo_path'])) {
+    $logoCandidates[] = __DIR__ . '/../../' . ltrim($empresaVenta['logo_path'], '/');
+}
+$logoCandidates[] = __DIR__ . '/../../assets/iconos/logo.jpeg';
+foreach ($logoCandidates as $lf) {
+    if (file_exists($lf)) {
+        $ext = strtolower(pathinfo($lf, PATHINFO_EXTENSION));
+        $mime = match($ext) { 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', default => 'image/jpeg' };
+        $logoCotBase64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($lf));
+        break;
+    }
+}
 ?>
 
 <link rel="stylesheet" href="../../assets/vendor/select2/select2.min.css">
@@ -493,20 +507,18 @@ $taxEnabledVenta = array_key_exists('tax_enabled', $empresaVenta) ? filter_var($
                 <div class="form-group"><label class="form-label">Fecha Emision</label><input type="date" class="form-control" id="cotFecha" value="<?= date('Y-m-d') ?>"></div>
                 <div class="form-group"><label class="form-label">Vigencia (dias)</label><input type="number" class="form-control" id="cotVigencia" value="30" min="1"></div>
             </div>
-            <div class="form-group"><label class="form-label">Observaciones</label><textarea class="form-control" id="cotObs" rows="2"></textarea></div>
-
             <!-- Lineas de detalle -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <label class="form-label" style="margin:0">Detalle de Items</label>
-                <button type="button" class="btn btn-outline btn-sm" onclick="agregarLineaCot()"><i class="fa fa-plus"></i> Agregar linea</button>
+                <label class="form-label" style="margin:0">Maquinarias a cotizar</label>
+                <button type="button" class="btn btn-outline btn-sm" onclick="agregarLineaCot()"><i class="fa fa-plus"></i> Agregar línea</button>
             </div>
             <div style="border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
                 <table style="margin:0" id="tablaCotDetalle">
                     <thead><tr>
-                        <th style="width:40%">Descripcion</th>
-                        <th class="text-right" style="width:12%">Cantidad</th>
-                        <th class="text-right" style="width:15%">Precio Unit. (S/)</th>
-                        <th class="text-right" style="width:10%">Dto. (%)</th>
+                        <th style="width:42%">Maquinaria / Descripción</th>
+                        <th class="text-right" style="width:10%">Cantidad</th>
+                        <th class="text-right" style="width:16%">Precio Unit. (S/)</th>
+                        <th class="text-right" style="width:9%">Dto. (%)</th>
                         <th class="text-right" style="width:15%">Subtotal</th>
                         <th style="width:8%"></th>
                     </tr></thead>
@@ -516,7 +528,7 @@ $taxEnabledVenta = array_key_exists('tax_enabled', $empresaVenta) ? filter_var($
                             <td colspan="4" class="text-right font-semibold" style="padding:8px 14px">Subtotal:</td>
                             <td class="text-right font-bold" style="padding:8px 14px" id="cotSubtotal">S/ 0.00</td><td></td>
                         </tr>
-                        <tr style="background:#f8fafc">
+                        <tr style="background:#f8fafc" id="cotIgvRow">
                             <td colspan="4" class="text-right font-semibold" style="padding:4px 14px">IGV (18%):</td>
                             <td class="text-right font-bold" style="padding:4px 14px" id="cotIgv">S/ 0.00</td><td></td>
                         </tr>
@@ -527,11 +539,12 @@ $taxEnabledVenta = array_key_exists('tax_enabled', $empresaVenta) ? filter_var($
                     </tfoot>
                 </table>
             </div>
+            <div class="form-group" style="margin-top:14px"><label class="form-label">Observaciones</label><textarea class="form-control" id="cotObs" rows="2"></textarea></div>
         </div>
         <div class="modal-footer">
             <button class="btn btn-outline" onclick="Modal.close('modalCotizacion')">Cancelar</button>
-            <button class="btn btn-success" onclick="guardarCotizacion('borrador')"><i class="fa fa-floppy-disk"></i> Guardar borrador</button>
-            <button class="btn btn-primary" onclick="guardarCotizacion('enviada')"><i class="fa fa-paper-plane"></i> Guardar y enviar</button>
+            <button class="btn btn-success" onclick="guardarCotizacion()"><i class="fa fa-floppy-disk"></i> Guardar</button>
+            <button class="btn btn-primary" onclick="imprimirCotizacion()"><i class="fa fa-print"></i> Imprimir</button>
         </div>
     </div>
 </div>
@@ -921,6 +934,7 @@ const EMPRESA_VENTA = <?= json_encode([
     'ruc' => $empresaVenta['ruc'] ?? '',
     'direccion' => $empresaVenta['direccion_fiscal'] ?? '',
     'telefono' => $empresaVenta['telefono'] ?? '',
+    'logo' => $logoCotBase64,
 ], JSON_UNESCAPED_UNICODE) ?>;
 
 // HELPERS
@@ -2221,15 +2235,34 @@ async function editarCotizacion(id) {
 }
 
 function agregarLineaCot(det=null) {
+    const maqOpts = '<option value="">— Seleccionar maquinaria —</option>' +
+        maquinariasVenta.map(m => {
+            const precio = parseFloat(m.precio_venta_calc || m.precio_venta || 0);
+            const label  = esc(m.modelo) + (m.numero_serie ? ` · Serie: ${esc(m.numero_serie)}` : '') + ` (${formatMoney(precio)})`;
+            return `<option value="${m.id}" data-desc="${esc(m.modelo)}" data-precio="${precio}">${label}</option>`;
+        }).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><input type="text" class="form-control" placeholder="Descripcion del producto/servicio..." value="${esc(det?.descripcion||'')}" onchange="recalcularCot()"></td>
-        <td><input type="number" class="form-control text-right" value="${det?.cantidad||1}" min="0.01" step="0.01" style="width:80px" onchange="recalcularLinea(this)"></td>
+        <td style="padding:6px 8px">
+            <select class="form-control" style="margin-bottom:4px;font-size:0.82rem" onchange="onCotMaqChange(this)">${maqOpts}</select>
+            <input type="text" class="form-control" placeholder="Descripción..." value="${esc(det?.descripcion||'')}" style="font-size:0.82rem" oninput="recalcularCot()">
+        </td>
+        <td><input type="number" class="form-control text-right" value="${det?.cantidad||1}" min="1" step="1" style="width:70px" onchange="recalcularLinea(this)"></td>
         <td><input type="number" class="form-control text-right" value="${det?.precio_unitario||0}" min="0" step="0.01" onchange="recalcularLinea(this)"></td>
-        <td><input type="number" class="form-control text-right" value="${det?.descuento||0}" min="0" max="100" step="0.01" style="width:70px" onchange="recalcularLinea(this)"></td>
+        <td><input type="number" class="form-control text-right" value="${det?.descuento||0}" min="0" max="100" step="1" style="width:60px" onchange="recalcularLinea(this)"></td>
         <td class="text-right font-semibold lin-sub" style="padding:8px 14px">${formatMoney(det?.subtotal||0)}</td>
         <td class="text-center"><button type="button" class="btn btn-outline btn-xs" onclick="this.closest('tr').remove();recalcularCot()"><i class="fa fa-times"></i></button></td>`;
     document.getElementById('cotDetalleBody').appendChild(tr);
+}
+
+function onCotMaqChange(sel) {
+    const opt = sel.selectedOptions[0];
+    if (!opt || !opt.value) return;
+    const tr = sel.closest('tr');
+    const inputs = tr.querySelectorAll('input');
+    inputs[0].value = opt.dataset.desc || '';
+    inputs[2].value = opt.dataset.precio || 0;
+    recalcularLinea(inputs[2]);
 }
 
 function recalcularLinea(input) {
@@ -2250,14 +2283,16 @@ function recalcularCot() {
         const dto = parseFloat(tr.querySelectorAll('input')[3]?.value)||0;
         sub += qty * pu * (1 - dto/100);
     });
-    const igv   = sub * 0.18;
+    const igv   = TAX_ENABLED ? sub * 0.18 : 0;
     const total = sub + igv;
     document.getElementById('cotSubtotal').textContent = formatMoney(sub);
     document.getElementById('cotIgv').textContent      = formatMoney(igv);
     document.getElementById('cotTotal').textContent    = formatMoney(total);
+    const igvRow = document.getElementById('cotIgvRow');
+    if (igvRow) igvRow.style.display = TAX_ENABLED ? '' : 'none';
 }
 
-async function guardarCotizacion(estado) {
+async function guardarCotizacion(closeModal = true) {
     const detalles = [];
     document.querySelectorAll('#cotDetalleBody tr').forEach(tr => {
         const inputs = tr.querySelectorAll('input');
@@ -2268,15 +2303,140 @@ async function guardarCotizacion(estado) {
         const dto = parseFloat(inputs[3].value)||0;
         detalles.push({ descripcion:desc, cantidad:qty, precio_unitario:pu, descuento:dto, subtotal:qty*pu*(1-dto/100) });
     });
-    if (!detalles.length) { Toast.warning('Agregue al menos un item.'); return; }
+    if (!detalles.length) { Toast.warning('Agregue al menos un item.'); return null; }
     const res = await apiPost(BASE, { action:'cotizacion_guardar',
-        id:document.getElementById('cotId').value, estado,
+        id:document.getElementById('cotId').value, estado: 'borrador',
         cliente_id:document.getElementById('cotCliente').value,
         fecha_emision:document.getElementById('cotFecha').value,
         vigencia_dias:document.getElementById('cotVigencia').value,
         observaciones:document.getElementById('cotObs').value, detalles });
-    if (res.ok) { Toast.success('Cotizacion guardada.'); Modal.close('modalCotizacion'); cargarCotizaciones(); }
-    else Toast.error(res.error||'Error.');
+    if (!res.ok) { Toast.error(res.error||'Error.'); return null; }
+    document.getElementById('cotId').value = res.id;
+    cargarCotizaciones();
+    if (closeModal) { Toast.success('Cotización guardada.'); Modal.close('modalCotizacion'); }
+    return res;
+}
+
+async function imprimirCotizacion() {
+    const res = await guardarCotizacion(false);
+    if (!res) return;
+    const numero = res.numero || '';
+    const clienteSel = document.getElementById('cotCliente');
+    const clienteNombre = clienteSel.selectedOptions[0]?.text || '';
+    const fecha = document.getElementById('cotFecha').value || '';
+    const vigencia = document.getElementById('cotVigencia').value || 30;
+    const obs = document.getElementById('cotObs').value || '';
+
+    const rows = [];
+    document.querySelectorAll('#cotDetalleBody tr').forEach(tr => {
+        const inputs = tr.querySelectorAll('input');
+        const desc = inputs[0].value.trim(); if (!desc) return;
+        const qty = parseFloat(inputs[1].value)||0;
+        const pu  = parseFloat(inputs[2].value)||0;
+        const dto = parseFloat(inputs[3].value)||0;
+        const sub = qty * pu * (1 - dto/100);
+        rows.push({ desc, qty, pu, dto, sub });
+    });
+
+    const subtotal = rows.reduce((a,r)=>a+r.sub,0);
+    const igv = TAX_ENABLED ? subtotal * 0.18 : 0;
+    const total = subtotal + igv;
+
+    const logoHtml = EMPRESA_VENTA.logo
+        ? `<img src="${EMPRESA_VENTA.logo}" style="max-height:60px;max-width:180px;object-fit:contain">`
+        : `<div style="font-size:20px;font-weight:900;color:#f97316">${esc(EMPRESA_VENTA.nombre)}</div>`;
+
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>Cotización ${esc(numero)}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:11px;color:#111;padding:28px 32px}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}
+.cot-box{border:2.5px solid #f97316;border-radius:6px;padding:12px 22px;text-align:center;min-width:150px}
+.cot-box .lbl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:4px}
+.cot-box .num{font-size:22px;font-weight:900;color:#f97316}
+.empresa{font-size:12px;font-weight:700;color:#1e293b;margin-bottom:2px}
+.empresa-sub{font-size:10px;color:#64748b}
+.section{margin-bottom:16px}
+.section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin-bottom:8px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 20px}
+.info-row{display:flex;gap:6px;font-size:11px}
+.info-lbl{color:#64748b;min-width:80px}
+.info-val{font-weight:600;color:#1e293b}
+table{width:100%;border-collapse:collapse;margin-bottom:12px}
+thead th{background:#f97316;color:#fff;padding:7px 10px;text-align:left;font-size:10px;font-weight:700}
+thead th.r{text-align:right}
+tbody td{padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;vertical-align:top}
+tbody td.r{text-align:right}
+tbody tr:nth-child(even){background:#f8fafc}
+.totals{margin-left:auto;width:260px}
+.tot-row{display:flex;justify-content:space-between;padding:4px 0;font-size:11px}
+.tot-row.total{border-top:2px solid #f97316;padding-top:8px;margin-top:4px;font-size:14px;font-weight:900;color:#f97316}
+.obs{background:#f8fafc;border-left:3px solid #f97316;padding:8px 12px;font-size:10px;color:#475569;border-radius:0 4px 4px 0}
+@media print{body{padding:14px 20px}@page{margin:10mm}}
+</style></head><body>
+<div class="hdr">
+  <div>
+    ${logoHtml}
+    <div class="empresa" style="margin-top:6px">${esc(EMPRESA_VENTA.razon_social)}</div>
+    ${EMPRESA_VENTA.ruc?`<div class="empresa-sub">RUC: ${esc(EMPRESA_VENTA.ruc)}</div>`:''}
+    ${EMPRESA_VENTA.direccion?`<div class="empresa-sub">${esc(EMPRESA_VENTA.direccion)}</div>`:''}
+    ${EMPRESA_VENTA.telefono?`<div class="empresa-sub">Tel: ${esc(EMPRESA_VENTA.telefono)}</div>`:''}
+  </div>
+  <div class="cot-box">
+    <div class="lbl">Cotización</div>
+    <div class="num">${esc(numero)}</div>
+    <div style="font-size:9px;color:#64748b;margin-top:4px">Fecha: ${esc(fecha)}</div>
+    <div style="font-size:9px;color:#64748b">Vigencia: ${esc(vigencia)} días</div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Datos del cliente</div>
+  <div class="info-grid">
+    <div class="info-row"><span class="info-lbl">Cliente:</span><span class="info-val">${esc(clienteNombre || 'Sin especificar')}</span></div>
+    <div class="info-row"><span class="info-lbl">Fecha:</span><span class="info-val">${esc(fecha)}</span></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Detalle de cotización</div>
+  <table>
+    <thead><tr>
+      <th style="width:46%">Descripción</th>
+      <th class="r" style="width:9%">Cant.</th>
+      <th class="r" style="width:16%">Precio Unit.</th>
+      <th class="r" style="width:9%">Dto. %</th>
+      <th class="r" style="width:16%">Subtotal</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${esc(r.desc)}</td>
+        <td class="r">${r.qty}</td>
+        <td class="r">S/ ${r.pu.toFixed(2)}</td>
+        <td class="r">${r.dto>0?r.dto+'%':'-'}</td>
+        <td class="r">S/ ${r.sub.toFixed(2)}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  <div class="totals">
+    <div class="tot-row"><span>Subtotal:</span><span>S/ ${subtotal.toFixed(2)}</span></div>
+    ${TAX_ENABLED?`<div class="tot-row"><span>IGV (18%):</span><span>S/ ${igv.toFixed(2)}</span></div>`:''}
+    <div class="tot-row total"><span>TOTAL:</span><span>S/ ${total.toFixed(2)}</span></div>
+  </div>
+</div>
+
+${obs?`<div class="section"><div class="section-title">Observaciones</div><div class="obs">${esc(obs)}</div></div>`:''}
+
+<script>
+function esc(s){const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML;}
+window.onload=()=>{ window.print(); };
+<\/script>
+</body></html>`;
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(html);
+    w.document.close();
 }
 
 async function cambiarEstadoCot(id, estado) {

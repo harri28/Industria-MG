@@ -497,8 +497,11 @@ try { switch ($action) {
             $ins->execute([':cid'=>$cot_id, ':desc'=>$d['descripcion'], ':qty'=>(float)$d['cantidad'],
                 ':pu'=>(float)$d['precio_unitario'], ':dto'=>(float)($d['descuento']??0), ':sub'=>(float)$d['subtotal']]);
         }
+        $numStmt = $db->prepare("SELECT numero FROM cotizaciones WHERE id=:id");
+        $numStmt->execute([':id' => $cot_id]);
+        $cot_numero = (string)$numStmt->fetchColumn();
         $db->commit();
-        jsonResponse(['ok'=>true,'id'=>$cot_id]);
+        jsonResponse(['ok'=>true,'id'=>$cot_id,'numero'=>$cot_numero]);
 
     case 'cotizacion_estado':
         $allowed = ['borrador','enviada','aprobada','rechazada','vencida'];
