@@ -236,6 +236,10 @@ try {
                 $where[] = 'c.tipo = :tipo';
                 $params[':tipo'] = $_GET['tipo'];
             }
+            if (!empty($_GET['tipo_documento_id'])) {
+                $where[] = 'c.tipo_documento_id = :tdoc';
+                $params[':tdoc'] = (int)$_GET['tipo_documento_id'];
+            }
             if (!empty($_GET['estado_crm'])) {
                 $where[] = 'c.estado_crm = :estado';
                 $params[':estado'] = $_GET['estado_crm'];
@@ -415,6 +419,79 @@ try {
             ");
             $stmt->execute([':cid' => (int)($_GET['id'] ?? 0)]);
             jsonResponse(['ok' => true, 'proyectos' => $stmt->fetchAll()]);
+
+        // ================================================================
+        // PROVEEDORES (gestionados desde este módulo; Compras solo consulta)
+        // ================================================================
+        case 'proveedores_listar':
+            $where  = ['1=1'];
+            $params = [];
+            if (!empty($_GET['q'])) {
+                $where[] = "(p.razon_social ILIKE :q OR p.ruc ILIKE :q OR p.contacto_nombre ILIKE :q)";
+                $params[':q'] = '%' . trim((string)$_GET['q']) . '%';
+            }
+            if (isset($_GET['activo']) && $_GET['activo'] !== '') {
+                $where[] = "p.activo = :activo";
+                $params[':activo'] = filter_var($_GET['activo'], FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false';
+            }
+            $stmt = $db->prepare("
+                SELECT p.*,
+                       COUNT(DISTINCT oc.id) AS total_oc,
+                       COALESCE(SUM(oc.total),0) AS monto_total
+                FROM proveedores p
+                LEFT JOIN ordenes_compra oc ON oc.proveedor_id = p.id
+                WHERE " . implode(' AND ', $where) . "
+                GROUP BY p.id ORDER BY p.razon_social");
+            $stmt->execute($params);
+            jsonResponse(['ok' => true, 'proveedores' => $stmt->fetchAll()]);
+
+        case 'proveedor_obtener':
+            $stmt = $db->prepare("SELECT * FROM proveedores WHERE id = :id");
+            $stmt->execute([':id' => (int)($_GET['id'] ?? 0)]);
+            $prov = $stmt->fetch();
+            if (!$prov) {
+                jsonResponse(['error' => 'Proveedor no encontrado.'], 404);
+            }
+            jsonResponse(['ok' => true, 'proveedor' => $prov]);
+
+        case 'proveedor_guardar':
+            if (empty($input['razon_social']) || trim((string)$input['razon_social']) === '') {
+                jsonResponse(['error' => 'La razón social es obligatoria.'], 400);
+            }
+            $email = trim((string)($input['email'] ?? ''));
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                jsonResponse(['error' => 'El correo no es válido.'], 422);
+            }
+            $datos = [
+                ':rs'     => trim((string)$input['razon_social']),
+                ':ruc'    => ($input['ruc'] ?? null) ?: null,
+                ':cn'     => ($input['contacto_nombre'] ?? null) ?: null,
+                ':email'  => $email ?: null,
+                ':tel'    => ($input['telefono'] ?? null) ?: null,
+                ':dir'    => ($input['direccion'] ?? null) ?: null,
+            ];
+            if (!empty($input['id'])) {
+                $datos[':id']     = (int)$input['id'];
+                $datos[':activo'] = filter_var($input['activo'] ?? true, FILTER_VALIDATE_BOOLEAN);
+                $db->prepare("UPDATE proveedores SET
+                    razon_social=:rs, ruc=:ruc, contacto_nombre=:cn,
+                    email=:email, telefono=:tel, direccion=:dir, activo=:activo
+                    WHERE id=:id")->execute($datos);
+                $id = (int)$input['id'];
+            } else {
+                $datos[':activo'] = true;
+                $stmt = $db->prepare("INSERT INTO proveedores
+                    (razon_social, ruc, contacto_nombre, email, telefono, direccion, activo)
+                    VALUES (:rs, :ruc, :cn, :email, :tel, :dir, :activo) RETURNING id");
+                $stmt->execute($datos);
+                $id = (int)$stmt->fetchColumn();
+            }
+            jsonResponse(['ok' => true, 'id' => $id]);
+
+        case 'proveedor_toggle':
+            $db->prepare("UPDATE proveedores SET activo = NOT activo WHERE id = :id")
+               ->execute([':id' => (int)($input['id'] ?? 0)]);
+            jsonResponse(['ok' => true]);
 
         default:
             jsonResponse(['error' => 'Accion no reconocida.'], 400);

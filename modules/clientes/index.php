@@ -1,19 +1,10 @@
 <?php
-$page_title = 'Clientes';
-$page_breadcrumb = '<span>Comercial</span> <span>›</span> Clientes';
+$page_title = 'Clientes y Proveedores';
+$page_breadcrumb = '<span>Comercial</span> <span>›</span> Clientes y Proveedores';
 require_once __DIR__ . '/../../includes/header.php';
 ?>
 
 <style>
-.clientes-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
-.cliente-stat { background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px 20px; display:flex; align-items:center; gap:14px; }
-.cliente-stat-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
-.csi-blue { background:#dbeafe; color:#2563eb; }
-.csi-green { background:#dcfce7; color:#16a34a; }
-.csi-indigo { background:#eef2ff; color:#6366f1; }
-.csi-amber { background:#fef3c7; color:#d97706; }
-.cliente-stat-value { font-size:1.45rem; font-weight:700; color:var(--text-primary); line-height:1; }
-.cliente-stat-label { font-size:.74rem; color:var(--text-muted); margin-top:3px; }
 .cliente-form-grid { display:grid; gap:14px; }
 .cliente-form-grid.c2 { grid-template-columns:1fr 1fr; }
 .input-lookup { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end; }
@@ -22,22 +13,28 @@ require_once __DIR__ . '/../../includes/header.php';
 .ubigeo-box { background:var(--bg-secondary,#f8fafc); border:1px dashed var(--border); border-radius:10px; padding:10px 12px; color:var(--text-muted); font-size:.82rem; }
 </style>
 
-<div class="clientes-stats">
-    <div class="cliente-stat">
-        <div class="cliente-stat-icon csi-blue"><i class="fa fa-users"></i></div>
-        <div><div class="cliente-stat-value" id="kpiTotal">—</div><div class="cliente-stat-label">Total clientes</div></div>
+<div class="tabs" id="cpTabs">
+    <div class="tab active" data-group="cp" data-target="tab-clientes"><i class="fa fa-users"></i> Clientes</div>
+    <div class="tab" data-group="cp" data-target="tab-proveedores"><i class="fa fa-truck-field"></i> Proveedores</div>
+</div>
+
+<div class="tab-content active" data-group="cp" id="tab-clientes">
+<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div style="min-width:88px;background:#fff;border:2px solid #000;border-radius:5px;padding:8px 10px">
+        <div id="kpiTotal" style="font-size:1.1rem;font-weight:800">—</div>
+        <div style="font-size:.6rem;color:var(--text-muted)">Total clientes</div>
     </div>
-    <div class="cliente-stat">
-        <div class="cliente-stat-icon csi-green"><i class="fa fa-circle-check"></i></div>
-        <div><div class="cliente-stat-value" id="kpiActivos">—</div><div class="cliente-stat-label">Activos</div></div>
+    <div style="min-width:88px;background:#fff;border:2px solid #000;border-radius:5px;padding:8px 10px">
+        <div id="kpiActivos" style="font-size:1.1rem;font-weight:800">—</div>
+        <div style="font-size:.6rem;color:var(--text-muted)">Activos</div>
     </div>
-    <div class="cliente-stat">
-        <div class="cliente-stat-icon csi-indigo"><i class="fa fa-user-clock"></i></div>
-        <div><div class="cliente-stat-value" id="kpiProspectos">—</div><div class="cliente-stat-label">Prospectos</div></div>
+    <div style="min-width:88px;background:#fff;border:2px solid #000;border-radius:5px;padding:8px 10px">
+        <div id="kpiProspectos" style="font-size:1.1rem;font-weight:800">—</div>
+        <div style="font-size:.6rem;color:var(--text-muted)">Prospectos</div>
     </div>
-    <div class="cliente-stat">
-        <div class="cliente-stat-icon csi-amber"><i class="fa fa-user-slash"></i></div>
-        <div><div class="cliente-stat-value" id="kpiInactivos">—</div><div class="cliente-stat-label">Inactivos</div></div>
+    <div style="min-width:88px;background:#fff;border:2px solid #000;border-radius:5px;padding:8px 10px">
+        <div id="kpiInactivos" style="font-size:1.1rem;font-weight:800">—</div>
+        <div style="font-size:.6rem;color:var(--text-muted)">Inactivos</div>
     </div>
 </div>
 
@@ -47,16 +44,8 @@ require_once __DIR__ . '/../../includes/header.php';
             <span class="icon"><i class="fa fa-search"></i></span>
             <input type="text" class="form-control" id="buscar" placeholder="Nombre, documento, telefono, WhatsApp o correo...">
         </div>
-        <select class="form-control" id="filtroTipo" style="width:160px">
-            <option value="">Todos los tipos</option>
-            <option value="empresa">Empresa</option>
-            <option value="persona">Persona</option>
-        </select>
-        <select class="form-control" id="filtroEstado" style="width:160px">
-            <option value="">Todos los estados</option>
-            <option value="activo">Activo</option>
-            <option value="prospecto">Prospecto</option>
-            <option value="inactivo">Inactivo</option>
+        <select class="form-control" id="filtroTipoDoc" style="width:200px">
+            <option value="">Todos los documentos</option>
         </select>
     </div>
     <div class="toolbar-right">
@@ -74,19 +63,55 @@ require_once __DIR__ . '/../../includes/header.php';
                     <th>Tipo</th>
                     <th>Cliente</th>
                     <th>Documento</th>
-                    <th>Contacto</th>
+                    <th>Correo</th>
                     <th>Telefono / WhatsApp</th>
                     <th>Estado CRM</th>
-                    <th class="text-center">Proyectos</th>
-                    <th></th>
                 </tr>
             </thead>
             <tbody id="tbody">
-                <tr><td colspan="8" class="text-center text-muted">Cargando...</td></tr>
+                <tr><td colspan="6" class="text-center text-muted">Cargando...</td></tr>
             </tbody>
         </table>
     </div>
 </div>
+</div><!-- /tab-clientes -->
+
+<div class="tab-content" data-group="cp" id="tab-proveedores">
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <div class="search-box">
+                <span class="icon"><i class="fa fa-search"></i></span>
+                <input type="text" class="form-control" id="provSearch" placeholder="Razon social, RUC o contacto...">
+            </div>
+            <select class="form-control" id="provFiltroActivo" style="width:160px">
+                <option value="">Todos</option>
+                <option value="true">Activos</option>
+                <option value="false">Inactivos</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn btn-primary btn-sm" onclick="abrirModalProveedor()">
+                <i class="fa fa-plus"></i> Nuevo Proveedor
+            </button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="table-responsive">
+            <table id="tablaProv">
+                <thead>
+                    <tr>
+                        <th>Razon Social</th><th>RUC</th><th>Contacto</th>
+                        <th>Telefono</th><th>Calificacion</th><th class="text-center">OCs</th>
+                        <th>Estado</th><th></th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyProv">
+                    <tr><td colspan="8" class="text-center text-muted">Cargando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div><!-- /tab-proveedores -->
 
 <div class="modal-overlay" id="modalCliente">
     <div class="modal modal-lg">
@@ -97,28 +122,12 @@ require_once __DIR__ . '/../../includes/header.php';
         <div class="modal-body">
             <input type="hidden" id="cId">
             <input type="hidden" id="cUbigeo">
+            <input type="hidden" id="cTipo">
+            <input type="hidden" id="cEstado" value="prospecto">
 
             <div class="cliente-form-grid c2">
                 <div class="form-group">
-                    <label class="form-label">Tipo</label>
-                    <select class="form-control" id="cTipo" onchange="actualizarEstadoDocumento()">
-                        <option value="persona">Persona</option>
-                        <option value="empresa">Empresa</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Estado CRM</label>
-                    <select class="form-control" id="cEstado">
-                        <option value="prospecto">Prospecto</option>
-                        <option value="activo">Activo</option>
-                        <option value="inactivo">Inactivo</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="cliente-form-grid c2">
-                <div class="form-group">
-                    <label class="form-label">Tipo de documento</label>
+                    <label class="form-label" style="display:flex;align-items:center;gap:8px">Tipo de documento <span class="doc-chip" id="docChip"><i class="fa fa-id-card"></i> Documento</span></label>
                     <select class="form-control" id="cTipoDocumento" onchange="actualizarEstadoDocumento()"></select>
                 </div>
                 <div class="form-group">
@@ -133,13 +142,15 @@ require_once __DIR__ . '/../../includes/header.php';
                 </div>
             </div>
 
-            <div style="margin-bottom:14px">
-                <span class="doc-chip" id="docChip"><i class="fa fa-id-card"></i> Documento</span>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" id="labelRazonSocial">Nombre completo</label>
-                <input type="text" class="form-control" id="cRazonSocial" placeholder="Nombre del cliente">
+            <div class="cliente-form-grid c2">
+                <div class="form-group">
+                    <label class="form-label" id="labelRazonSocial">Nombre completo</label>
+                    <input type="text" class="form-control" id="cRazonSocial" placeholder="Nombre del cliente">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Direccion</label>
+                    <textarea class="form-control" id="cDireccion" rows="1" placeholder="Direccion del cliente" style="min-height:40px"></textarea>
+                </div>
             </div>
 
             <div class="cliente-form-grid c2">
@@ -162,11 +173,6 @@ require_once __DIR__ . '/../../includes/header.php';
                     <label class="form-label">WhatsApp</label>
                     <input type="text" class="form-control" id="cWhatsapp" placeholder="987654321">
                 </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Direccion</label>
-                <textarea class="form-control" id="cDireccion" rows="2" placeholder="Direccion del cliente"></textarea>
             </div>
 
             <div class="ubigeo-box" id="ubigeoInfo">Sin ubigeo consultado.</div>
@@ -199,6 +205,55 @@ require_once __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
+<div class="modal-overlay" id="modalProveedor">
+    <div class="modal" style="max-width:560px">
+        <div class="modal-header">
+            <span class="modal-title" id="modalProvTitulo">Nuevo Proveedor</span>
+            <button class="modal-close" onclick="Modal.close('modalProveedor')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="prov_id">
+            <div class="cliente-form-grid c2">
+                <div class="form-group" style="grid-column:1/3">
+                    <label class="form-label">Razon Social *</label>
+                    <input type="text" class="form-control" id="prov_razon_social" placeholder="Nombre o razon social del proveedor">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">RUC</label>
+                    <input type="text" class="form-control" id="prov_ruc" maxlength="20">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Contacto</label>
+                    <input type="text" class="form-control" id="prov_contacto">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="prov_email">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Telefono</label>
+                    <input type="text" class="form-control" id="prov_telefono">
+                </div>
+                <div class="form-group" style="grid-column:1/3">
+                    <label class="form-label">Direccion</label>
+                    <textarea class="form-control" id="prov_direccion" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Estado</label>
+                    <select class="form-control" id="prov_activo">
+                        <option value="1">Activo</option>
+                        <option value="0">Inactivo</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="Modal.close('modalProveedor')">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarProveedor()"><i class="fa fa-save"></i> Guardar</button>
+        </div>
+    </div>
+</div>
+
 <?php ob_start(); ?>
 <script>
 const BASE = 'api.php';
@@ -209,6 +264,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     actualizarEstadoDocumento();
     cargarKpis();
     cargarClientes();
+    cargarProveedores();
+    // Si se llega con #proveedores (ej. desde Compras), abrir esa pestaña
+    if (location.hash === '#proveedores') {
+        document.querySelector('.tab[data-target="tab-proveedores"]')?.click();
+    }
 });
 
 let debounceTimer;
@@ -216,8 +276,14 @@ document.getElementById('buscar').addEventListener('input', () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(cargarClientes, 300);
 });
-document.getElementById('filtroTipo').addEventListener('change', cargarClientes);
-document.getElementById('filtroEstado').addEventListener('change', cargarClientes);
+document.getElementById('filtroTipoDoc').addEventListener('change', cargarClientes);
+
+let provDebTimer;
+document.getElementById('provSearch').addEventListener('input', () => {
+    clearTimeout(provDebTimer);
+    provDebTimer = setTimeout(cargarProveedores, 300);
+});
+document.getElementById('provFiltroActivo').addEventListener('change', cargarProveedores);
 
 async function cargarTiposDocumento() {
     const d = await apiGet(`${BASE}?action=document_types`);
@@ -228,6 +294,14 @@ async function cargarTiposDocumento() {
     ).join('');
     const predeterminado = tiposDocumento.find(item => item.codigo === '1') || tiposDocumento[0];
     if (predeterminado) sel.value = String(predeterminado.id);
+
+    // Filtro de la barra superior (mismo catalogo de tipos de documento)
+    const filtro = document.getElementById('filtroTipoDoc');
+    if (filtro) {
+        filtro.innerHTML = '<option value="">Todos los documentos</option>' + tiposDocumento.map(item =>
+            `<option value="${item.id}">${esc(item.descripcion_documento || item.descripcion)}</option>`
+        ).join('');
+    }
 }
 
 function obtenerMetaDocumento() {
@@ -240,7 +314,8 @@ function obtenerMetaDocumento() {
 
 function actualizarEstadoDocumento() {
     const meta = obtenerMetaDocumento();
-    const esEmpresa = meta.codigo === '6' || document.getElementById('cTipo').value === 'empresa';
+    // El tipo (persona/empresa) se deduce del tipo de documento: RUC (codigo 6) = empresa
+    const esEmpresa = meta.codigo === '6';
     document.getElementById('cTipo').value = esEmpresa ? 'empresa' : 'persona';
     document.getElementById('labelRazonSocial').textContent = esEmpresa ? 'Razon social' : 'Nombre completo';
     document.getElementById('cRazonSocial').placeholder = esEmpresa ? 'Razon social del cliente' : 'Nombre completo del cliente';
@@ -263,59 +338,43 @@ async function cargarKpis() {
 
 async function cargarClientes() {
     const buscar = document.getElementById('buscar').value.trim();
-    const tipo = document.getElementById('filtroTipo').value;
-    const estado = document.getElementById('filtroEstado').value;
+    const tipoDoc = document.getElementById('filtroTipoDoc').value;
     const params = new URLSearchParams({ action: 'listar' });
     if (buscar) params.set('buscar', buscar);
-    if (tipo) params.set('tipo', tipo);
-    if (estado) params.set('estado_crm', estado);
+    if (tipoDoc) params.set('tipo_documento_id', tipoDoc);
 
-    document.getElementById('tbody').innerHTML = '<tr><td colspan="8" class="text-center text-muted"><div class="spinner" style="margin:0 auto"></div></td></tr>';
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="6" class="text-center text-muted"><div class="spinner" style="margin:0 auto"></div></td></tr>';
 
     try {
         const d = await apiGet(`${BASE}?${params.toString()}`);
         renderTabla(d.clientes || []);
     } catch (e) {
-        document.getElementById('tbody').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error al cargar clientes.</td></tr>';
+        document.getElementById('tbody').innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar clientes.</td></tr>';
     }
 }
 
 function renderTabla(clientes) {
     const tbody = document.getElementById('tbody');
     if (!clientes.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay clientes con los filtros actuales.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No hay clientes con los filtros actuales.</td></tr>';
         return;
     }
     tbody.innerHTML = clientes.map(c => {
         const tel = [c.telefono, c.whatsapp].filter(Boolean).join(' / ') || '—';
-        return `<tr>
+        return `<tr onclick="editarCliente(${c.id})" style="cursor:pointer" title="Editar cliente">
             <td>${badgeTipo(c.tipo)}</td>
             <td>
                 <div class="font-semibold">${esc(c.razon_social || c.nombre_completo || '—')}</div>
-                ${c.notas ? `<div class="text-xs text-muted">${esc(c.notas)}</div>` : ''}
             </td>
             <td>
-                <div class="text-xs">${esc(c.descripcion_documento || 'Documento')}</div>
+                <div>${esc(c.descripcion_documento || 'Documento')}</div>
                 <div class="font-semibold">${esc(c.numero_documento || c.ruc_dni || '—')}</div>
             </td>
-            <td class="text-xs">
-                ${esc(c.contacto_nombre || '—')}
-                ${c.email ? `<div><a href="mailto:${esc(c.email)}" class="text-primary">${esc(c.email)}</a></div>` : ''}
-            </td>
-            <td class="text-xs">${esc(tel)}</td>
-            <td>${badgeEstado(c.estado_crm)}</td>
-            <td class="text-center">
-                ${parseInt(c.proyectos_activos) > 0
-                    ? `<span class="badge badge-fabricacion">${c.proyectos_activos} activo${c.proyectos_activos > 1 ? 's' : ''}</span>`
-                    : `<span class="text-xs text-muted">${c.proyectos_total > 0 ? c.proyectos_total + ' hist.' : '—'}</span>`}
-            </td>
             <td>
-                <div style="display:flex;gap:.25rem">
-                    <button class="btn btn-outline btn-xs" onclick="verDetalle(${c.id})" title="Ver detalle"><i class="fa fa-eye"></i></button>
-                    <button class="btn btn-outline btn-xs" onclick="editarCliente(${c.id})" title="Editar"><i class="fa fa-pencil"></i></button>
-                    <button class="btn btn-outline btn-xs" onclick="eliminarCliente(${c.id}, '${escJs(c.razon_social || c.nombre_completo || 'Cliente')}')" title="Desactivar"><i class="fa fa-trash"></i></button>
-                </div>
+                ${c.email ? `<a href="mailto:${esc(c.email)}" class="text-primary" onclick="event.stopPropagation()">${esc(c.email)}</a>` : '—'}
             </td>
+            <td>${esc(tel)}</td>
+            <td>${badgeEstado(c.estado_crm)}</td>
         </tr>`;
     }).join('');
 }
@@ -481,6 +540,124 @@ async function verDetalle(id) {
         `;
     } catch (e) {
         document.getElementById('detalleBody').innerHTML = '<div class="alert alert-danger">Error al cargar el detalle.</div>';
+    }
+}
+
+// ── PROVEEDORES ─────────────────────────────────────────────
+async function cargarProveedores() {
+    const q      = document.getElementById('provSearch').value.trim();
+    const activo = document.getElementById('provFiltroActivo').value;
+    const params = new URLSearchParams({ action: 'proveedores_listar' });
+    if (q) params.set('q', q);
+    if (activo) params.set('activo', activo);
+
+    const tbody = document.getElementById('tbodyProv');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted"><div class="spinner" style="margin:0 auto"></div></td></tr>';
+    try {
+        const d = await apiGet(`${BASE}?${params.toString()}`);
+        const provs = d.proveedores || [];
+        if (!provs.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No hay proveedores con los filtros actuales.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = provs.map(p => `<tr>
+            <td><strong>${esc(p.razon_social)}</strong></td>
+            <td>${esc(p.ruc || '—')}</td>
+            <td>${esc(p.contacto_nombre || '—')}</td>
+            <td>${esc(p.telefono || '—')}</td>
+            <td>${estrellasProv(p.calificacion)}</td>
+            <td class="text-center">${p.total_oc || 0}</td>
+            <td>${p.activo
+                ? '<span class="badge badge-completado">Activo</span>'
+                : '<span class="badge badge-cancelado">Inactivo</span>'}</td>
+            <td>
+                <div style="display:flex;gap:.25rem">
+                    <button class="btn btn-outline btn-xs" onclick="editarProveedor(${p.id})" title="Editar"><i class="fa fa-pencil"></i></button>
+                    <button class="btn btn-outline btn-xs" onclick="toggleProveedor(${p.id})" title="${p.activo ? 'Desactivar' : 'Activar'}"><i class="fa fa-power-off"></i></button>
+                </div>
+            </td>
+        </tr>`).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Error al cargar proveedores.</td></tr>';
+    }
+}
+
+function estrellasProv(cal) {
+    if (!cal) return '<span class="text-muted">—</span>';
+    const n = parseFloat(cal);
+    let html = '';
+    for (let i = 1; i <= 5; i++) {
+        html += `<i class="fa fa-star" style="color:${i <= n ? '#f97316' : '#e2e8f0'};font-size:.75rem"></i>`;
+    }
+    return html + ` <small class="text-muted">(${n})</small>`;
+}
+
+function abrirModalProveedor() {
+    document.getElementById('prov_id').value = '';
+    document.getElementById('prov_razon_social').value = '';
+    document.getElementById('prov_ruc').value = '';
+    document.getElementById('prov_contacto').value = '';
+    document.getElementById('prov_email').value = '';
+    document.getElementById('prov_telefono').value = '';
+    document.getElementById('prov_direccion').value = '';
+    document.getElementById('prov_activo').value = '1';
+    document.getElementById('modalProvTitulo').textContent = 'Nuevo Proveedor';
+    Modal.open('modalProveedor');
+}
+
+async function editarProveedor(id) {
+    try {
+        const d = await apiGet(`${BASE}?action=proveedor_obtener&id=${id}`);
+        const p = d.proveedor;
+        document.getElementById('prov_id').value           = p.id;
+        document.getElementById('prov_razon_social').value = p.razon_social || '';
+        document.getElementById('prov_ruc').value          = p.ruc || '';
+        document.getElementById('prov_contacto').value     = p.contacto_nombre || '';
+        document.getElementById('prov_email').value        = p.email || '';
+        document.getElementById('prov_telefono').value     = p.telefono || '';
+        document.getElementById('prov_direccion').value    = p.direccion || '';
+        document.getElementById('prov_activo').value       = p.activo ? '1' : '0';
+        document.getElementById('modalProvTitulo').textContent = 'Editar Proveedor';
+        Modal.open('modalProveedor');
+    } catch (e) {
+        Toast.error(e.message || 'No se pudo cargar el proveedor.');
+    }
+}
+
+async function guardarProveedor() {
+    const rs = document.getElementById('prov_razon_social').value.trim();
+    if (!rs) return Toast.warning('La razon social es obligatoria.');
+    const id = document.getElementById('prov_id').value;
+    const body = {
+        action:          'proveedor_guardar',
+        id:              id || null,
+        razon_social:    rs,
+        ruc:             document.getElementById('prov_ruc').value.trim(),
+        contacto_nombre: document.getElementById('prov_contacto').value.trim(),
+        email:           document.getElementById('prov_email').value.trim(),
+        telefono:        document.getElementById('prov_telefono').value.trim(),
+        direccion:       document.getElementById('prov_direccion').value.trim(),
+        activo:          document.getElementById('prov_activo').value === '1',
+    };
+    try {
+        const r = await apiPost(BASE, body);
+        if (!r.ok) throw new Error(r.error || 'Error al guardar.');
+        Toast.success(id ? 'Proveedor actualizado.' : 'Proveedor creado.');
+        Modal.close('modalProveedor');
+        cargarProveedores();
+    } catch (e) {
+        Toast.error(e.message || 'Error al guardar.');
+    }
+}
+
+async function toggleProveedor(id) {
+    try {
+        const r = await apiPost(BASE, { action: 'proveedor_toggle', id });
+        if (!r.ok) throw new Error(r.error || 'Error.');
+        Toast.success('Estado actualizado.');
+        cargarProveedores();
+    } catch (e) {
+        Toast.error(e.message || 'Error al actualizar.');
     }
 }
 
