@@ -127,9 +127,9 @@ foreach ($logoCandidates as $lf) {
 <!-- TABS -->
 <div class="tabs">
     <div class="tab active" data-group="vnt" data-target="tabVenta"><i class="fa fa-cart-shopping"></i> Realizar Venta</div>
-    <div class="tab" data-group="vnt" data-target="tabListadoVentas"><i class="fa fa-clock-rotate-left"></i> Listado de Ventas</div>
-    <div class="tab" data-group="vnt" data-target="tabCotizaciones"><i class="fa fa-file-lines"></i> Cotizaciones</div>
     <div class="tab" data-group="vnt" data-target="tabMaquinarias"><i class="fa fa-gears"></i> Maquinarias</div>
+    <div class="tab" data-group="vnt" data-target="tabListadoVentas"><i class="fa fa-clock-rotate-left"></i> Historial de Ventas</div>
+    <div class="tab" data-group="vnt" data-target="tabCotizaciones"><i class="fa fa-file-lines"></i> Cotizaciones</div>
     <div class="tab" data-group="vnt" data-target="tabServicio"><i class="fa fa-screwdriver-wrench"></i> Servicio Tecnico</div>
     <div class="tab" data-group="vnt" data-target="tabOrdenes"><i class="fa fa-receipt"></i> Ordenes de Venta</div>
 </div>
@@ -138,76 +138,73 @@ foreach ($logoCandidates as $lf) {
      TAB: REALIZAR VENTA
      ============================================================ -->
 <div class="tab-content active" data-group="vnt" id="tabVenta">
-    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start">
+<div style="display:grid;grid-template-columns:1fr 1.5fr;gap:16px;align-items:start">
 
-        <!-- Izquierda: busqueda + carrito -->
-        <div>
-            <div class="card">
-                <div class="card-header">
-                    <span class="card-title"><i class="fa fa-search"></i> Buscar Producto de Inventario</span>
-                </div>
-                <style>
-                .venta-chip{border:1px solid var(--border);background:#fff;color:var(--text-secondary);padding:5px 13px;border-radius:999px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s}
-                .venta-chip:hover{border-color:var(--primary);color:var(--primary)}
-                .venta-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
-                .venta-card{border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;background:#fff;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,box-shadow .15s}
-                .venta-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.06)}
-                </style>
-                <div style="padding:14px 16px">
-                    <div class="search-box" style="margin-bottom:10px;width:100%;max-width:none">
-                        <span class="icon"><i class="fa fa-search"></i></span>
-                        <input type="text" id="ventaSearch" class="form-control"
-                               style="width:100%;max-width:none"
-                               placeholder="Codigo o nombre del producto..." oninput="filtrarProductosVenta()">
-                    </div>
-                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-                        <button type="button" class="venta-chip active" data-tipo="todos" onclick="setFiltroVenta('todos',this)">Todos</button>
-                        <button type="button" class="venta-chip" data-tipo="repuesto" onclick="setFiltroVenta('repuesto',this)">Repuestos</button>
-                        <button type="button" class="venta-chip" data-tipo="maquinaria" onclick="setFiltroVenta('maquinaria',this)">Maquinarias</button>
-                        <button type="button" class="venta-chip" data-tipo="servicio" onclick="setFiltroVenta('servicio',this)">Servicios</button>
-                        <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-secondary);cursor:pointer;white-space:nowrap">
-                            <input type="checkbox" id="ventaMostrarMateriales" onchange="filtrarProductosVenta()"> Mostrar materiales
-                        </label>
-                    </div>
-                    <div id="ventaResultados" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:#fff;padding:10px">
-                        <div class="text-center text-muted" style="padding:14px;font-size:.85rem">Cargando productos...</div>
-                    </div>
-                </div>
+    <!-- Columna izquierda: Buscar producto -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fa fa-search"></i> Buscar Producto de Inventario</span>
+        </div>
+        <style>
+        .venta-chip{border:1px solid var(--border);background:#fff;color:var(--text-secondary);padding:5px 13px;border-radius:999px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s}
+        .venta-chip:hover{border-color:var(--primary);color:var(--primary)}
+        .venta-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+        .venta-card{border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;background:#fff;display:flex;flex-direction:column;gap:6px;transition:border-color .15s,box-shadow .15s}
+        .venta-card:hover{border-color:var(--primary);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+        </style>
+        <div style="padding:14px 16px">
+            <div class="search-box" style="margin-bottom:10px;width:100%;max-width:none">
+                <span class="icon"><i class="fa fa-search"></i></span>
+                <input type="text" id="ventaSearch" class="form-control"
+                       style="width:100%;max-width:none"
+                       placeholder="Codigo o nombre del producto..." oninput="filtrarProductosVenta()">
             </div>
-
-            <div class="card" style="margin-top:14px">
-                <div class="card-header">
-                    <span class="card-title"><i class="fa fa-cart-shopping"></i> Carrito</span>
-                    <div class="card-actions">
-                        <button class="btn btn-outline btn-sm" onclick="limpiarCarrito()"><i class="fa fa-trash"></i> Limpiar</button>
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead><tr>
-                            <th>Producto</th>
-                            <th class="text-right" style="width:70px">Stock</th>
-                            <th class="text-right" style="width:90px">Cant.</th>
-                            <th class="text-right" style="width:110px">P. Unit. (S/)</th>
-                            <th class="text-right" style="width:80px">Dto. (%)</th>
-                            <th class="text-right" style="width:110px">Subtotal</th>
-                            <th style="width:40px"></th>
-                        </tr></thead>
-                        <tbody id="ventaCarritoBody">
-                            <tr><td colspan="7" class="text-center text-muted" style="padding:20px">Sin productos agregados</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                <button type="button" class="venta-chip active" data-tipo="todos" onclick="setFiltroVenta('todos',this)">Todos</button>
+                <button type="button" class="venta-chip" data-tipo="repuesto" onclick="setFiltroVenta('repuesto',this)">Repuestos</button>
+                <button type="button" class="venta-chip" data-tipo="maquinaria" onclick="setFiltroVenta('maquinaria',this)">Maquinarias</button>
+                <button type="button" class="venta-chip" data-tipo="servicio" onclick="setFiltroVenta('servicio',this)">Servicios</button>
+                <label style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--text-secondary);cursor:pointer;white-space:nowrap">
+                    <input type="checkbox" id="ventaMostrarMateriales" onchange="filtrarProductosVenta()"> Mostrar materiales
+                </label>
+            </div>
+            <div id="ventaResultados" style="max-height:360px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;background:#fff;padding:10px">
+                <div class="text-center text-muted" style="padding:14px;font-size:.85rem">Cargando productos...</div>
             </div>
         </div>
+    </div>
 
-        <!-- Derecha: resumen y confirmar -->
-        <div class="card" style="position:sticky;top:16px">
-            <div class="card-header">
-                <span class="card-title"><i class="fa fa-receipt"></i> Resumen de Venta</span>
+    <!-- Columna derecha: Carrito + Resumen unificados -->
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fa fa-cart-shopping"></i> Carrito</span>
+            <div class="card-actions">
+                <button class="btn btn-outline btn-sm" onclick="limpiarCarrito()"><i class="fa fa-trash"></i> Limpiar</button>
             </div>
-            <div style="padding:16px">
-                <div class="form-row" style="display:block">
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead><tr>
+                    <th>Producto</th>
+                    <th class="text-right" style="width:70px">Stock</th>
+                    <th class="text-right" style="width:90px">Cant.</th>
+                    <th class="text-right" style="width:110px">P. Unit. (S/)</th>
+                    <th class="text-right" style="width:80px">Dto. (%)</th>
+                    <th class="text-right" style="width:110px">Subtotal</th>
+                    <th style="width:40px"></th>
+                </tr></thead>
+                <tbody id="ventaCarritoBody">
+                    <tr><td colspan="7" class="text-center text-muted" style="padding:20px">Sin productos agregados</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer unificado: formulario + totales -->
+        <div style="border-top:1px solid var(--border);padding:16px;display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start">
+
+            <!-- Formulario de venta -->
+            <div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                     <div class="form-group">
                         <label class="form-label">Comprobante</label>
                         <select class="form-control" id="ventaTipoComprobante" onchange="onVentaTipoComprobanteChange()">
@@ -221,20 +218,25 @@ foreach ($logoCandidates as $lf) {
                         <select class="form-control" id="ventaSerie"></select>
                     </div>
                 </div>
-                <div id="ventaComprobanteInfo" class="text-xs text-muted" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:9px 10px;margin:2px 0 12px">
+                <div id="ventaComprobanteInfo" class="text-xs text-muted" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:9px 10px;margin:0 0 12px">
                     Se generara el correlativo automaticamente.
                 </div>
-                <div class="form-group venta-cliente-wrap">
-                    <label class="form-label">Cliente</label>
-                    <select class="form-control" id="ventaCliente">
-                        <option value="">Sin cliente / clientes varios</option>
-                    </select>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                    <div class="form-group venta-cliente-wrap">
+                        <label class="form-label">Cliente</label>
+                        <select class="form-control" id="ventaCliente">
+                            <option value="">Sin cliente / clientes varios</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="ventaObs" rows="2" placeholder="Notas de la venta..."></textarea>
+                    </div>
                 </div>
-                <div class="form-group" style="margin-top:12px">
-                    <label class="form-label">Observaciones</label>
-                    <textarea class="form-control" id="ventaObs" rows="2" placeholder="Notas de la venta..."></textarea>
-                </div>
-                <hr style="margin:14px 0;border:none;border-top:1px solid var(--border)">
+            </div>
+
+            <!-- Totales + botón -->
+            <div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:.9rem">
                     <span class="text-muted">Subtotal</span>
                     <span id="ventaSubtotal" class="font-semibold">S/ 0.00</span>
@@ -251,10 +253,12 @@ foreach ($logoCandidates as $lf) {
                     <i class="fa fa-circle-check"></i> Continuar al cobro
                 </button>
             </div>
-        </div>
 
+        </div>
     </div>
-</div>
+
+</div><!-- /grid columnas -->
+</div><!-- /tabVenta -->
 
 <!-- ============================================================
      TAB: LISTADO DE VENTAS
@@ -364,8 +368,6 @@ foreach ($logoCandidates as $lf) {
                 </div>
                 <select class="form-control" id="filtroEstadoCot" style="width:140px" onchange="cargarCotizaciones()">
                     <option value="">Todos los estados</option>
-                    <option value="borrador">Borrador</option>
-                    <option value="enviada">Enviada</option>
                     <option value="aprobada">Aprobada</option>
                     <option value="rechazada">Rechazada</option>
                     <option value="vencida">Vencida</option>
@@ -375,10 +377,10 @@ foreach ($logoCandidates as $lf) {
         </div>
         <div class="table-responsive">
             <table><thead><tr>
-                <th>Numero</th><th>Cliente</th><th>Fecha</th><th>Vigencia</th>
+                <th>ID</th><th>Numero</th><th>Cliente</th><th>Fecha</th><th>Vigencia</th>
                 <th>Estado</th><th class="text-right">Subtotal</th><th class="text-right">IGV</th><th class="text-right">Total</th><th>Acciones</th>
             </tr></thead>
-            <tbody id="cotizacionesBody"><tr><td colspan="9" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
+            <tbody id="cotizacionesBody"><tr><td colspan="10" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
         </div>
     </div>
 </div>
@@ -515,25 +517,24 @@ foreach ($logoCandidates as $lf) {
             <div style="border:1.5px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
                 <table style="margin:0" id="tablaCotDetalle">
                     <thead><tr>
-                        <th style="width:42%">Maquinaria / Descripción</th>
-                        <th class="text-right" style="width:10%">Cantidad</th>
-                        <th class="text-right" style="width:16%">Precio Unit. (S/)</th>
-                        <th class="text-right" style="width:9%">Dto. (%)</th>
-                        <th class="text-right" style="width:15%">Subtotal</th>
-                        <th style="width:8%"></th>
+                        <th style="width:48%">Maquinaria / Descripción</th>
+                        <th class="text-right" style="width:12%">Cantidad</th>
+                        <th class="text-right" style="width:18%">Precio Unit. (S/)</th>
+                        <th class="text-right" style="width:16%">Subtotal</th>
+                        <th style="width:6%"></th>
                     </tr></thead>
                     <tbody id="cotDetalleBody"></tbody>
                     <tfoot>
                         <tr style="background:#f8fafc">
-                            <td colspan="4" class="text-right font-semibold" style="padding:8px 14px">Subtotal:</td>
+                            <td colspan="3" class="text-right font-semibold" style="padding:8px 14px">Subtotal:</td>
                             <td class="text-right font-bold" style="padding:8px 14px" id="cotSubtotal">S/ 0.00</td><td></td>
                         </tr>
                         <tr style="background:#f8fafc" id="cotIgvRow">
-                            <td colspan="4" class="text-right font-semibold" style="padding:4px 14px">IGV (18%):</td>
+                            <td colspan="3" class="text-right font-semibold" style="padding:4px 14px">IGV (18%):</td>
                             <td class="text-right font-bold" style="padding:4px 14px" id="cotIgv">S/ 0.00</td><td></td>
                         </tr>
                         <tr style="background:var(--primary-light)">
-                            <td colspan="4" class="text-right font-bold" style="padding:8px 14px;color:var(--primary)">TOTAL:</td>
+                            <td colspan="3" class="text-right font-bold" style="padding:8px 14px;color:var(--primary)">TOTAL:</td>
                             <td class="text-right font-bold" style="padding:8px 14px;color:var(--primary);font-size:1rem" id="cotTotal">S/ 0.00</td><td></td>
                         </tr>
                     </tfoot>
@@ -939,7 +940,7 @@ const EMPRESA_VENTA = <?= json_encode([
 
 // HELPERS
 function esc(s) { const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML; }
-const estadosCot = { borrador:'badge-cancelado', enviada:'badge-fabricacion', aprobada:'badge-entrega', rechazada:'badge-retrasado', vencida:'badge-pruebas' };
+const estadosCot = { aprobada:'badge-entrega', rechazada:'badge-retrasado', vencida:'badge-pruebas' };
 const estadosSrv = { pendiente:'badge-pruebas', en_proceso:'badge-fabricacion', completado:'badge-entrega', cancelado:'badge-cancelado' };
 function activarTab(id) {
     document.querySelectorAll('.tab[data-group="vnt"]').forEach(t => { if(t.dataset.target===id) t.click(); });
@@ -2027,11 +2028,13 @@ async function cargarCotizaciones() {
     const d = await apiGet(`${BASE}?${params}`);
     const tbody = document.getElementById('cotizacionesBody');
     const lista = d.cotizaciones||[];
-    if (!lista.length) { tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted">Sin cotizaciones.</td></tr>'; return; }
+    if (!lista.length) { tbody.innerHTML='<tr><td colspan="10" class="text-center text-muted">Sin cotizaciones.</td></tr>'; return; }
     tbody.innerHTML = lista.map(c => {
         const vencida = c.estado==='enviada' && c.fecha_vigencia && c.fecha_vigencia < new Date().toISOString().split('T')[0];
-        return `<tr>
-            <td class="font-semibold text-primary">${esc(c.numero)}</td>
+        const correlativo = cotCorrelativo(c.id);
+        return `<tr style="cursor:pointer" onclick="editarCotizacion(${c.id})">
+            <td class="font-bold text-primary">${correlativo}</td>
+            <td class="font-semibold text-sm">${esc(c.numero)}</td>
             <td class="text-sm">${esc(c.cliente_nombre||'-')}</td>
             <td class="text-xs">${formatDate(c.fecha_emision)}</td>
             <td class="text-xs ${vencida?'text-danger font-bold':''}">${formatDate(c.fecha_vigencia)}</td>
@@ -2039,16 +2042,13 @@ async function cargarCotizaciones() {
             <td class="text-right text-sm">${formatMoney(c.subtotal)}</td>
             <td class="text-right text-sm">${formatMoney(c.igv)}</td>
             <td class="text-right font-bold">${formatMoney(c.total)}</td>
-            <td style="white-space:nowrap">
-                <button class="btn btn-outline btn-xs" onclick="editarCotizacion(${c.id})" title="Editar"><i class="fa fa-pencil"></i></button>
-                ${c.estado==='borrador'||c.estado==='enviada' ? `
-                <button class="btn btn-outline btn-xs" onclick="cambiarEstadoCot(${c.id},'aprobada')" title="Aprobar"><i class="fa fa-check" style="color:var(--success)"></i></button>
-                <button class="btn btn-outline btn-xs" onclick="cambiarEstadoCot(${c.id},'rechazada')" title="Rechazar"><i class="fa fa-times" style="color:var(--danger)"></i></button>
-                ` : ''}
-                <button class="btn btn-outline btn-xs" onclick="eliminarCotizacion(${c.id})" title="Eliminar"><i class="fa fa-trash"></i></button>
-            </td>
+            <td style="white-space:nowrap" onclick="event.stopPropagation()"></td>
         </tr>`;
     }).join('');
+}
+
+function cotCorrelativo(id) {
+    return 'COT' + String(id).padStart(3, '0');
 }
 
 let combosLoaded = false;
@@ -2249,7 +2249,6 @@ function agregarLineaCot(det=null) {
         </td>
         <td><input type="number" class="form-control text-right" value="${det?.cantidad||1}" min="1" step="1" style="width:70px" onchange="recalcularLinea(this)"></td>
         <td><input type="number" class="form-control text-right" value="${det?.precio_unitario||0}" min="0" step="0.01" onchange="recalcularLinea(this)"></td>
-        <td><input type="number" class="form-control text-right" value="${det?.descuento||0}" min="0" max="100" step="1" style="width:60px" onchange="recalcularLinea(this)"></td>
         <td class="text-right font-semibold lin-sub" style="padding:8px 14px">${formatMoney(det?.subtotal||0)}</td>
         <td class="text-center"><button type="button" class="btn btn-outline btn-xs" onclick="this.closest('tr').remove();recalcularCot()"><i class="fa fa-times"></i></button></td>`;
     document.getElementById('cotDetalleBody').appendChild(tr);
@@ -2269,8 +2268,7 @@ function recalcularLinea(input) {
     const tr  = input.closest('tr');
     const qty = parseFloat(tr.querySelectorAll('input')[1].value)||0;
     const pu  = parseFloat(tr.querySelectorAll('input')[2].value)||0;
-    const dto = parseFloat(tr.querySelectorAll('input')[3].value)||0;
-    const sub = qty * pu * (1 - dto/100);
+    const sub = qty * pu;
     tr.querySelector('.lin-sub').textContent = formatMoney(sub);
     recalcularCot();
 }
@@ -2280,8 +2278,7 @@ function recalcularCot() {
     document.querySelectorAll('#cotDetalleBody tr').forEach(tr => {
         const qty = parseFloat(tr.querySelectorAll('input')[1]?.value)||0;
         const pu  = parseFloat(tr.querySelectorAll('input')[2]?.value)||0;
-        const dto = parseFloat(tr.querySelectorAll('input')[3]?.value)||0;
-        sub += qty * pu * (1 - dto/100);
+        sub += qty * pu;
     });
     const igv   = TAX_ENABLED ? sub * 0.18 : 0;
     const total = sub + igv;
@@ -2300,12 +2297,11 @@ async function guardarCotizacion(closeModal = true) {
         if (!desc) return;
         const qty = parseFloat(inputs[1].value)||0;
         const pu  = parseFloat(inputs[2].value)||0;
-        const dto = parseFloat(inputs[3].value)||0;
-        detalles.push({ descripcion:desc, cantidad:qty, precio_unitario:pu, descuento:dto, subtotal:qty*pu*(1-dto/100) });
+        detalles.push({ descripcion:desc, cantidad:qty, precio_unitario:pu, descuento:0, subtotal:qty*pu });
     });
     if (!detalles.length) { Toast.warning('Agregue al menos un item.'); return null; }
     const res = await apiPost(BASE, { action:'cotizacion_guardar',
-        id:document.getElementById('cotId').value, estado: 'borrador',
+        id:document.getElementById('cotId').value, estado: 'aprobada',
         cliente_id:document.getElementById('cotCliente').value,
         fecha_emision:document.getElementById('cotFecha').value,
         vigencia_dias:document.getElementById('cotVigencia').value,
@@ -2320,7 +2316,7 @@ async function guardarCotizacion(closeModal = true) {
 async function imprimirCotizacion() {
     const res = await guardarCotizacion(false);
     if (!res) return;
-    const numero = res.numero || '';
+    const numero = cotCorrelativo(res.id);
     const clienteSel = document.getElementById('cotCliente');
     const clienteNombre = clienteSel.selectedOptions[0]?.text || '';
     const fecha = document.getElementById('cotFecha').value || '';
@@ -2333,9 +2329,8 @@ async function imprimirCotizacion() {
         const desc = inputs[0].value.trim(); if (!desc) return;
         const qty = parseFloat(inputs[1].value)||0;
         const pu  = parseFloat(inputs[2].value)||0;
-        const dto = parseFloat(inputs[3].value)||0;
-        const sub = qty * pu * (1 - dto/100);
-        rows.push({ desc, qty, pu, dto, sub });
+        const sub = qty * pu;
+        rows.push({ desc, qty, pu, sub });
     });
 
     const subtotal = rows.reduce((a,r)=>a+r.sub,0);
@@ -2369,9 +2364,9 @@ thead th.r{text-align:right}
 tbody td{padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:11px;vertical-align:top}
 tbody td.r{text-align:right}
 tbody tr:nth-child(even){background:#f8fafc}
-.totals{margin-left:auto;width:260px}
-.tot-row{display:flex;justify-content:space-between;padding:4px 0;font-size:11px}
-.tot-row.total{border-top:2px solid #f97316;padding-top:8px;margin-top:4px;font-size:14px;font-weight:900;color:#f97316}
+.totals{width:100%}
+.tot-row{display:flex;justify-content:space-between;padding:8px 12px;font-size:12px;border-bottom:1px solid #f1f5f9;background:#f8fafc}
+.tot-row.total{background:#fff7ed;border-top:2px solid #f97316;border-bottom:2px solid #f97316;font-size:15px;font-weight:900;color:#f97316}
 .obs{background:#f8fafc;border-left:3px solid #f97316;padding:8px 12px;font-size:10px;color:#475569;border-radius:0 4px 4px 0}
 @media print{body{padding:14px 20px}@page{margin:10mm}}
 </style></head><body>
@@ -2403,18 +2398,16 @@ tbody tr:nth-child(even){background:#f8fafc}
   <div class="section-title">Detalle de cotización</div>
   <table>
     <thead><tr>
-      <th style="width:46%">Descripción</th>
-      <th class="r" style="width:9%">Cant.</th>
-      <th class="r" style="width:16%">Precio Unit.</th>
-      <th class="r" style="width:9%">Dto. %</th>
-      <th class="r" style="width:16%">Subtotal</th>
+      <th style="width:54%">Descripción</th>
+      <th class="r" style="width:10%">Cant.</th>
+      <th class="r" style="width:18%">Precio Unit.</th>
+      <th class="r" style="width:18%">Subtotal</th>
     </tr></thead>
     <tbody>
       ${rows.map(r=>`<tr>
         <td>${esc(r.desc)}</td>
         <td class="r">${r.qty}</td>
         <td class="r">S/ ${r.pu.toFixed(2)}</td>
-        <td class="r">${r.dto>0?r.dto+'%':'-'}</td>
         <td class="r">S/ ${r.sub.toFixed(2)}</td>
       </tr>`).join('')}
     </tbody>
