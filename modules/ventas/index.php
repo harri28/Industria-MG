@@ -27,12 +27,12 @@ foreach ($logoCandidates as $lf) {
 <style>
 .venta-cliente-wrap .select2-container { width:100% !important; }
 .venta-cliente-wrap .select2-container--default .select2-selection--single {
-    height:40px;border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;
+    height:32px;border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;
 }
 .venta-cliente-wrap .select2-container--default .select2-selection--single .select2-selection__rendered {
-    line-height:38px;padding-left:14px;font-size:.9rem;color:var(--text-primary);
+    line-height:30px;padding-left:10px;font-size:.82rem;color:var(--text-primary);
 }
-.venta-cliente-wrap .select2-container--default .select2-selection--single .select2-selection__arrow { height:38px; }
+.venta-cliente-wrap .select2-container--default .select2-selection--single .select2-selection__arrow { height:30px; }
 .select2-dropdown { border-color:var(--border);border-radius:8px;overflow:hidden; }
 .venta-stat-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px; }
 .venta-stat-card { background:#fff;border:1px solid var(--border);border-radius:12px;padding:14px;box-shadow:0 1px 3px rgba(15,23,42,.06); }
@@ -177,80 +177,165 @@ foreach ($logoCandidates as $lf) {
     <!-- Columna derecha: Carrito + Resumen unificados -->
     <div class="card">
         <div class="card-header">
-            <span class="card-title"><i class="fa fa-cart-shopping"></i> Carrito</span>
+            <span class="card-title"><i class="fa fa-receipt"></i> Resumen de la Venta</span>
             <div class="card-actions">
                 <button class="btn btn-outline btn-sm" onclick="limpiarCarrito()"><i class="fa fa-trash"></i> Limpiar</button>
             </div>
         </div>
-        <div class="table-responsive">
-            <table>
-                <thead><tr>
-                    <th>Producto</th>
-                    <th class="text-right" style="width:70px">Stock</th>
-                    <th class="text-right" style="width:90px">Cant.</th>
-                    <th class="text-right" style="width:110px">P. Unit. (S/)</th>
-                    <th class="text-right" style="width:80px">Dto. (%)</th>
-                    <th class="text-right" style="width:110px">Subtotal</th>
-                    <th style="width:40px"></th>
-                </tr></thead>
-                <tbody id="ventaCarritoBody">
-                    <tr><td colspan="7" class="text-center text-muted" style="padding:20px">Sin productos agregados</td></tr>
-                </tbody>
-            </table>
-        </div>
-
         <!-- Footer unificado: formulario + totales -->
-        <div style="border-top:1px solid var(--border);padding:16px;display:grid;grid-template-columns:1fr 300px;gap:24px;align-items:start">
+        <style>
+        .medio-pago-chip{border:1px solid var(--border);background:#fff;color:var(--text-secondary);padding:5px 10px;border-radius:6px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:5px}
+        .medio-pago-chip:hover{border-color:var(--primary);color:var(--primary)}
+        .medio-pago-chip.active{background:var(--primary);border-color:var(--primary);color:#fff}
+        .forma-pago-btn{border:1px solid var(--border);background:#fff;color:var(--text-secondary);padding:6px 14px;border-radius:6px;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s}
+        .forma-pago-btn:hover{border-color:var(--primary);color:var(--primary)}
+        .forma-pago-btn.active{background:var(--primary);border-color:var(--primary);color:#fff}
+        </style>
+        <div style="padding:16px">
 
             <!-- Formulario de venta -->
             <div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div class="form-group">
-                        <label class="form-label">Comprobante</label>
-                        <select class="form-control" id="ventaTipoComprobante" onchange="onVentaTipoComprobanteChange()">
-                            <option value="boleta">Boleta electronica</option>
-                            <option value="factura">Factura electronica</option>
+                <div style="display:grid;grid-template-columns:148px 130px 1fr;gap:10px;align-items:end;margin-bottom:10px">
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Comprobante</label>
+                        <select class="form-control" id="ventaTipoComprobante" onchange="onVentaTipoComprobanteChange()" style="height:32px;font-size:.78rem;padding:4px 8px">
+                            <option value="boleta">Boleta</option>
+                            <option value="factura">Factura</option>
                             <option value="nota_venta">Nota de venta</option>
                         </select>
+                        <select id="ventaSerie" style="display:none"></select>
                     </div>
-                    <div class="form-group" style="display:none">
-                        <label class="form-label">Serie</label>
-                        <select class="form-control" id="ventaSerie"></select>
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Correlativo</label>
+                        <input type="text" id="ventaCorrelatvoDisplay" class="form-control" readonly
+                            style="height:32px;font-size:.82rem;padding:4px 10px;background:#f8fafc;color:var(--primary);font-weight:700;cursor:default" value="---">
+                    </div>
+                    <div class="form-group venta-cliente-wrap" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Cliente</label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <div style="flex:1;position:relative">
+                                <input type="text" id="ventaClienteBuscar" class="form-control"
+                                    style="height:32px;font-size:.82rem;padding:4px 10px"
+                                    placeholder="Buscar cliente..." autocomplete="off"
+                                    oninput="filtrarClientesVenta()"
+                                    onfocus="mostrarClientesDropVenta(ventaClientesUltimos())">
+                                <div id="ventaClienteDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:999;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:220px;overflow-y:auto;margin-top:2px"></div>
+                            </div>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="abrirModalNuevoClienteRapido()" title="Nuevo cliente" style="flex-shrink:0;height:32px;padding:0 9px">
+                                <i class="fa fa-user-plus"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div id="ventaComprobanteInfo" class="text-xs text-muted" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:9px 10px;margin:0 0 12px">
-                    Se generara el correlativo automaticamente.
+                <div id="ventaComprobanteInfo" style="display:none"></div>
+                <!-- Dirección | Celular | Forma de pago | Medios de pago — una sola fila -->
+                <div style="display:grid;grid-template-columns:1fr 110px 130px 130px;gap:8px;align-items:end;margin-bottom:10px">
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Dirección</label>
+                        <input type="text" id="ventaClienteDireccion" class="form-control" readonly
+                            style="height:32px;font-size:.82rem;padding:4px 10px;background:#f8fafc" placeholder="—">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Celular</label>
+                        <input type="text" id="ventaClienteCelular" class="form-control" readonly
+                            style="height:32px;font-size:.82rem;padding:4px 10px;background:#f8fafc" placeholder="—">
+                    </div>
+                    <!-- Forma de pago dropdown -->
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Forma de pago</label>
+                        <div style="position:relative">
+                            <div id="formasPagoInput" onclick="toggleFormasPagoDrop()"
+                                style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;height:32px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:.82rem;user-select:none">
+                                <span id="formasPagoLabel" style="color:var(--text-primary)">Directo</span>
+                                <i class="fa fa-chevron-down" style="font-size:.7rem;color:var(--text-secondary)"></i>
+                            </div>
+                            <div id="formasPagoDrop" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:1000;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);margin-top:2px;overflow:hidden">
+                                <div onclick="seleccionarFormaPago('directo')" id="formaItem_directo" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary)"></i> Directo
+                                </div>
+                                <div onclick="seleccionarFormaPago('credito')" id="formaItem_credito" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem;border-top:1px solid var(--border)" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary);visibility:hidden"></i> Crédito
+                                </div>
+                                <div onclick="seleccionarFormaPago('adelanto')" id="formaItem_adelanto" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem;border-top:1px solid var(--border)" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary);visibility:hidden"></i> Adelanto
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Medios de pago dropdown -->
+                    <div class="form-group" style="margin-bottom:0">
+                        <label class="form-label" style="font-size:.78rem">Medios de pago</label>
+                        <div style="position:relative">
+                            <div id="mediosPagoInput" onclick="toggleMediosPagoDrop()"
+                                style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;height:32px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:.82rem;user-select:none">
+                                <span id="mediosPagoLabel" style="color:var(--text-primary)">Efectivo</span>
+                                <i class="fa fa-chevron-down" style="font-size:.7rem;color:var(--text-secondary)"></i>
+                            </div>
+                            <div id="mediosPagoDrop" style="display:none;position:absolute;top:100%;right:0;left:auto;width:160px;z-index:1000;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.12);margin-top:2px;overflow:hidden">
+                                <div onclick="toggleMedioPagoItem('efectivo')" id="medioItem_efectivo" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary)"></i><i class="fa fa-money-bills"></i> Efectivo
+                                </div>
+                                <div onclick="toggleMedioPagoItem('yape')" id="medioItem_yape" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem;border-top:1px solid var(--border)" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary);visibility:hidden"></i><i class="fa fa-mobile-screen"></i> Yape
+                                </div>
+                                <div onclick="toggleMedioPagoItem('plin')" id="medioItem_plin" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem;border-top:1px solid var(--border)" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary);visibility:hidden"></i><i class="fa fa-mobile-screen"></i> Plin
+                                </div>
+                                <div onclick="toggleMedioPagoItem('transferencia')" id="medioItem_transferencia" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem;border-top:1px solid var(--border)" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary);visibility:hidden"></i><i class="fa fa-building-columns"></i> Transferencia
+                                </div>
+                                <div onclick="toggleMedioPagoItem('visa')" id="medioItem_visa" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;font-size:.82rem;border-top:1px solid var(--border)" onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                                    <i class="fa fa-check" style="width:14px;color:var(--primary);visibility:hidden"></i><i class="fa fa-credit-card"></i> Visa/MC
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- /fila única -->
+                <!-- Monto adelanto (condicional) -->
+                <div id="panelAdelanto" class="form-group" style="display:none;margin-bottom:10px">
+                    <label class="form-label">Monto adelantado (S/)</label>
+                    <input type="number" class="form-control" id="ventaMontoAdelanto" min="0" step="0.01" placeholder="0.00">
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                    <div class="form-group venta-cliente-wrap">
-                        <label class="form-label">Cliente</label>
-                        <select class="form-control" id="ventaCliente">
-                            <option value="">Sin cliente / clientes varios</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Observaciones</label>
-                        <textarea class="form-control" id="ventaObs" rows="2" placeholder="Notas de la venta..."></textarea>
-                    </div>
+                <!-- Carrito de productos -->
+                <div style="margin-bottom:0;border:1px solid var(--border);border-radius:6px;overflow:hidden">
+                    <table style="width:100%">
+                        <thead><tr>
+                            <th>Producto</th>
+                            <th class="text-right" style="width:90px">Cant.</th>
+                            <th class="text-right" style="width:110px">P. Unit. (S/)</th>
+                            <th class="text-right" style="width:110px">Subtotal</th>
+                            <th style="width:40px"></th>
+                        </tr></thead>
+                        <tbody id="ventaCarritoBody">
+                            <tr><td colspan="5" class="text-center text-muted" style="padding:20px">Sin productos agregados</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <?php if ($taxEnabledVenta): ?>
+                            <tr style="background:#f8fafc;border-top:1px solid var(--border)" id="ventaIgvRow">
+                                <td colspan="3" class="text-right text-muted" style="padding:4px 12px;font-size:.82rem">IGV (18%)</td>
+                                <td class="text-right font-semibold" style="padding:4px 12px;font-size:.92rem" id="ventaIgv">S/ 0.00</td>
+                                <td></td>
+                            </tr>
+                            <?php endif; ?>
+                            <tr style="background:var(--primary-light,#fff7ed);border-top:2px solid var(--primary)">
+                                <td colspan="3" class="text-right font-bold" style="padding:8px 12px;color:var(--primary);font-size:.92rem">TOTAL</td>
+                                <td class="text-right font-bold" style="padding:8px 12px;color:var(--primary);font-size:1.1rem" id="ventaTotal">S/ 0.00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <!-- Observaciones -->
+                <div class="form-group" style="margin-top:14px">
+                    <label class="form-label">Observaciones</label>
+                    <textarea class="form-control" id="ventaObs" rows="2" placeholder="Notas de la venta..."></textarea>
                 </div>
             </div>
 
-            <!-- Totales + botón -->
-            <div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:.9rem">
-                    <span class="text-muted">Subtotal</span>
-                    <span id="ventaSubtotal" class="font-semibold">S/ 0.00</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:12px;font-size:.9rem">
-                    <span class="text-muted">IGV (18%)</span>
-                    <span id="ventaIgv" class="font-semibold">S/ 0.00</span>
-                </div>
-                <div style="display:flex;justify-content:space-between;background:var(--primary-light,#eff6ff);padding:12px;border-radius:8px;margin-bottom:16px">
-                    <span class="font-bold" style="color:var(--primary)">TOTAL</span>
-                    <span id="ventaTotal" class="font-bold" style="color:var(--primary);font-size:1.15rem">S/ 0.00</span>
-                </div>
-                <button class="btn btn-primary" style="width:100%;padding:11px;font-size:.95rem;font-weight:600" onclick="abrirModalCobroVenta()">
-                    <i class="fa fa-circle-check"></i> Continuar al cobro
+            <!-- Botón Generar Venta -->
+            <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+                <button class="btn btn-primary" style="padding:9px 24px;font-size:.95rem;font-weight:600" onclick="abrirModalCobroVenta()">
+                    <i class="fa fa-circle-check"></i> Generar Venta
                 </button>
             </div>
 
@@ -715,12 +800,12 @@ foreach ($logoCandidates as $lf) {
     </div>
 </div>
 
-<!-- MODAL: COBRO DE VENTA -->
+<!-- MODAL: COBRO DE VENTA (confirmación) -->
 <div class="modal-overlay" id="modalCobroVenta">
-    <div class="modal" style="max-width:520px" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">
+    <div class="modal" style="max-width:480px" onclick="event.stopPropagation()" ondblclick="event.stopPropagation()">
         <div class="modal-header">
-            <span class="modal-title"><i class="fa fa-cash-register" style="color:var(--primary)"></i> Cobro de venta</span>
-            <button class="modal-close"><i class="fa fa-times"></i></button>
+            <span class="modal-title"><i class="fa fa-cash-register" style="color:var(--primary)"></i> Confirmar venta</span>
+            <button class="modal-close" onclick="Modal.close('modalCobroVenta')"><i class="fa fa-times"></i></button>
         </div>
         <div class="modal-body" style="padding:18px 20px">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -729,65 +814,44 @@ foreach ($logoCandidates as $lf) {
                     <div id="cobroVentaComprobante" class="form-control" style="background:#f8fafc"></div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Metodo de pago</label>
-                    <select class="form-control" id="cobroVentaMetodo" onchange="calcularVueltoVenta()">
-                        <option value="efectivo">Efectivo</option>
-                        <option value="yape">Yape</option>
-                        <option value="plin">Plin</option>
-                        <option value="tarjeta">Tarjeta</option>
-                        <option value="transferencia">Transferencia</option>
-                    </select>
+                    <label class="form-label">Cliente</label>
+                    <div id="cobroVentaCliente" class="form-control" style="background:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+                <div class="form-group">
+                    <label class="form-label">Medios de pago</label>
+                    <div id="cobroMediosDisplay" style="display:flex;gap:4px;flex-wrap:wrap;min-height:36px;align-items:center;padding:4px 0"></div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Forma de pago</label>
+                    <div id="cobroFormaDisplay" class="form-control" style="background:#f8fafc"></div>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Cliente</label>
-                <div id="cobroVentaCliente" class="form-control" style="background:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-            </div>
-
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px;margin:14px 0">
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-                    <span class="text-muted">Subtotal</span><strong id="cobroVentaSubtotal">S/ 0.00</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px;color:#16a34a">
-                    <span>Descuento</span><strong id="cobroVentaDescuentoLabel">-S/ 0.00</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px">
-                    <span class="text-muted">IGV</span><strong id="cobroVentaIgv">S/ 0.00</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;font-size:1.2rem;color:#f97316">
-                    <strong>Total</strong><strong id="cobroVentaTotal">S/ 0.00</strong>
+            <!-- Lista de ítems -->
+            <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:12px">
+                <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+                    <thead><tr style="background:#f8fafc">
+                        <th style="padding:7px 10px;text-align:left">Producto</th>
+                        <th style="padding:7px 8px;text-align:right;width:50px">Cant.</th>
+                        <th style="padding:7px 8px;text-align:right;width:80px">P.Unit.</th>
+                        <th style="padding:7px 8px;text-align:right;width:80px">Subtotal</th>
+                    </tr></thead>
+                    <tbody id="cobroItemsList"></tbody>
+                </table>
+                <div style="border-top:1px solid var(--border);padding:8px 10px;display:flex;justify-content:space-between;align-items:center;background:#f8fafc">
+                    <span class="text-muted" style="font-size:.8rem">IGV (18%): <strong id="cobroVentaIgv">S/ 0.00</strong></span>
+                    <span style="font-size:1.05rem;font-weight:700;color:#e97316">TOTAL <strong id="cobroVentaTotal">S/ 0.00</strong></span>
                 </div>
             </div>
+            <!-- IDs ocultos requeridos por actualizarResumenCobroVenta -->
+            <span id="cobroVentaSubtotal" style="display:none"></span>
+            <span id="cobroVentaDescuentoLabel" style="display:none"></span>
+            <input type="hidden" id="cobroVentaDescuento" value="0">
 
-            <div class="form-group">
-                <label class="form-label">Descuento global (S/)</label>
-                <input type="number" class="form-control" id="cobroVentaDescuento" min="0" step="0.01" value="0.00" oninput="actualizarResumenCobroVenta()">
-            </div>
-
-            <div style="display:flex;gap:10px;align-items:center;margin:10px 0 12px;flex-wrap:wrap">
-                <button type="button" class="btn btn-outline btn-sm" id="btnPagoMixtoVenta" onclick="togglePagoMixtoVenta()">
-                    <i class="fa fa-layer-group"></i> Pago mixto
-                </button>
-                <label style="display:flex;align-items:center;gap:8px;font-size:.86rem;cursor:pointer">
-                    <input type="checkbox" id="cobroVentaCredito" onchange="toggleCreditoVenta(this.checked)">
-                    Pago a credito
-                </label>
-            </div>
-
-            <div id="panelPagoMixtoVenta" style="display:none;border:1px dashed var(--border);border-radius:10px;padding:10px;margin-bottom:12px">
-                <div id="pagoMixtoRowsVenta"></div>
-                <button type="button" class="btn btn-outline btn-xs" onclick="agregarPagoMixtoVenta()"><i class="fa fa-plus"></i> Agregar metodo</button>
-                <div class="text-xs text-muted" id="pagoMixtoResumenVenta" style="margin-top:8px"></div>
-            </div>
-
-            <div id="panelCreditoVenta" style="display:none;border:1px dashed #fed7aa;border-radius:10px;padding:10px;margin-bottom:12px;background:#fffaf5">
-                <div id="creditoRowsVenta"></div>
-                <button type="button" class="btn btn-outline btn-xs" onclick="agregarCuotaCreditoVenta()"><i class="fa fa-plus"></i> Agregar cuota</button>
-                <div class="text-xs text-muted" id="creditoResumenVenta" style="margin-top:8px"></div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <!-- Solo visible si medio=efectivo único y forma=directo -->
+            <div id="panelMontoRecibido" style="display:none;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
                 <div class="form-group">
                     <label class="form-label">Monto recibido</label>
                     <input type="number" class="form-control" id="cobroVentaMonto" min="0" step="0.01" oninput="calcularVueltoVenta()">
@@ -811,21 +875,94 @@ foreach ($logoCandidates as $lf) {
     </div>
 </div>
 
-<!-- MODAL: COMPROBANTE DE VENTA -->
+<!-- MODAL: COMPROBANTE DE VENTA (A4) -->
 <div class="modal-overlay" id="modalVentaTicket">
-    <div class="modal" style="max-width:390px">
+    <div class="modal" style="max-width:860px;width:98vw">
         <div class="modal-header">
             <span class="modal-title"><i class="fa fa-circle-check" style="color:var(--success)"></i> Venta completada</span>
             <button class="modal-close" onclick="cerrarTicketVenta()"><i class="fa fa-times"></i></button>
         </div>
-        <div class="modal-body" style="padding:16px;background:#e5e7eb;max-height:72vh;overflow:auto">
-            <div style="background:#fff;border-radius:6px;padding:16px;box-shadow:0 2px 8px rgba(15,23,42,.18)">
-                <div id="ventaTicketBody"></div>
+        <div class="modal-body" style="padding:16px;background:#e5e7eb;max-height:80vh;overflow:auto">
+            <div id="ventaTicketBody" style="background:#fff;border-radius:4px;box-shadow:0 2px 8px rgba(15,23,42,.18);padding:30px;max-width:794px;margin:0 auto;font-family:Arial,sans-serif;font-size:12px;color:#111"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline btn-sm" onclick="imprimirTicketVenta()"><i class="fa fa-print"></i> Imprimir A4</button>
+            <button class="btn btn-primary" onclick="cerrarTicketVenta()"><i class="fa fa-plus"></i> Nueva venta</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: NUEVO CLIENTE (completo, igual al módulo de Clientes) -->
+<style>
+.nc-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.nc-input-lookup { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end; }
+.nc-lookup-note { font-size:.77rem; color:var(--text-muted); margin-top:6px; }
+.nc-doc-chip { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:.78rem; font-weight:700; }
+.nc-ubigeo-box { background:var(--bg-secondary,#f8fafc); border:1px dashed var(--border); border-radius:8px; padding:9px 12px; color:var(--text-muted); font-size:.82rem; margin-bottom:12px; }
+</style>
+<div class="modal-overlay" id="modalNuevoClienteRapido">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <span class="modal-title"><i class="fa fa-user-plus"></i> Nuevo Cliente</span>
+            <button class="modal-close" onclick="Modal.close('modalNuevoClienteRapido')"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="ncUbigeo">
+            <div class="nc-form-grid" style="margin-bottom:12px">
+                <div class="form-group">
+                    <label class="form-label" style="display:flex;align-items:center;gap:8px">Tipo de documento <span class="nc-doc-chip" id="ncDocChip"><i class="fa fa-id-card"></i> Documento</span></label>
+                    <select class="form-control" id="ncTipoDoc" onchange="ncActualizarEstadoDoc()"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Numero de documento</label>
+                    <div class="nc-input-lookup">
+                        <input type="text" class="form-control" id="ncNroDoc" placeholder="Ingrese el documento">
+                        <button type="button" class="btn btn-outline" id="ncBtnConsultar" onclick="ncConsultarDocumento()">
+                            <i class="fa fa-search"></i> Consultar
+                        </button>
+                    </div>
+                    <div class="nc-lookup-note" id="ncLookupNote">Consulta automatica disponible para DNI y RUC.</div>
+                </div>
+            </div>
+            <div class="nc-form-grid" style="margin-bottom:12px">
+                <div class="form-group">
+                    <label class="form-label" id="ncLabelNombre">Nombre completo</label>
+                    <input type="text" class="form-control" id="ncNombre" placeholder="Nombre del cliente">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" class="form-control" id="ncDireccion" placeholder="Dirección del cliente">
+                </div>
+            </div>
+            <div class="nc-form-grid" style="margin-bottom:12px">
+                <div class="form-group">
+                    <label class="form-label">Nombre de contacto</label>
+                    <input type="text" class="form-control" id="ncContacto" placeholder="Contacto comercial o referencia">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Correo</label>
+                    <input type="email" class="form-control" id="ncEmail" placeholder="correo@ejemplo.com">
+                </div>
+            </div>
+            <div class="nc-form-grid" style="margin-bottom:12px">
+                <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="text" class="form-control" id="ncTelefono" placeholder="987654321">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">WhatsApp</label>
+                    <input type="text" class="form-control" id="ncWhatsapp" placeholder="987654321">
+                </div>
+            </div>
+            <div class="nc-ubigeo-box" id="ncUbigeoInfo">Sin ubigeo consultado.</div>
+            <div class="form-group">
+                <label class="form-label">Notas / Observaciones</label>
+                <textarea class="form-control" id="ncNotas" rows="2" placeholder="Información comercial, acuerdos, referencias, etc."></textarea>
             </div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-outline btn-sm" onclick="imprimirTicketVenta()"><i class="fa fa-print"></i> Imprimir</button>
-            <button class="btn btn-primary" onclick="cerrarTicketVenta()"><i class="fa fa-plus"></i> Nueva venta</button>
+            <button class="btn btn-outline" onclick="Modal.close('modalNuevoClienteRapido')">Cancelar</button>
+            <button class="btn btn-primary" onclick="guardarNuevoClienteRapido()"><i class="fa fa-save"></i> Guardar</button>
         </div>
     </div>
 </div>
@@ -964,8 +1101,173 @@ let pagoMixtoVentaActivo = false;
 let pagoMixtoVentaRows = [];
 let creditoVentaActivo = false;
 let creditoVentaRows = [];
+// Medios y forma de pago (Resumen de la Venta)
+let ventaMediosPago = ['efectivo'];
+let ventaFormaPago = 'directo';
+const MEDIOS_LABELS = { efectivo:'Efectivo', yape:'Yape', plin:'Plin', transferencia:'Transferencia', visa:'Visa/MC' };
+const FORMA_LABELS  = { directo:'Directo (contado)', credito:'Credito', adelanto:'Con adelanto' };
 let maquinariasVenta = [];
 let maquinariaVentaActual = null;
+
+function toggleMediosPagoDrop() {
+    const drop = document.getElementById('mediosPagoDrop');
+    if (!drop) return;
+    drop.style.display = drop.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleMedioPagoItem(medio) {
+    const idx = ventaMediosPago.indexOf(medio);
+    if (idx >= 0) {
+        if (ventaMediosPago.length === 1) return; // mínimo uno
+        ventaMediosPago.splice(idx, 1);
+    } else {
+        ventaMediosPago.push(medio);
+    }
+    actualizarMediosPagoUI();
+}
+
+function actualizarMediosPagoUI() {
+    Object.keys(MEDIOS_LABELS).forEach(m => {
+        const item = document.getElementById(`medioItem_${m}`);
+        if (!item) return;
+        const check = item.querySelector('.fa-check');
+        if (check) check.style.visibility = ventaMediosPago.includes(m) ? 'visible' : 'hidden';
+    });
+    const lbl = document.getElementById('mediosPagoLabel');
+    if (lbl) lbl.textContent = ventaMediosPago.map(m => MEDIOS_LABELS[m] || m).join(', ');
+}
+
+document.addEventListener('click', e => {
+    const drop = document.getElementById('mediosPagoDrop');
+    const inp  = document.getElementById('mediosPagoInput');
+    if (drop && inp && !drop.contains(e.target) && !inp.contains(e.target)) {
+        drop.style.display = 'none';
+    }
+});
+
+function toggleFormasPagoDrop() {
+    const drop = document.getElementById('formasPagoDrop');
+    if (drop) drop.style.display = drop.style.display === 'none' ? 'block' : 'none';
+}
+
+function seleccionarFormaPago(forma) {
+    ventaFormaPago = forma;
+    ['directo','credito','adelanto'].forEach(f => {
+        const item = document.getElementById(`formaItem_${f}`);
+        if (item) item.querySelector('.fa-check').style.visibility = f === forma ? 'visible' : 'hidden';
+    });
+    const lbl = document.getElementById('formasPagoLabel');
+    if (lbl) lbl.textContent = FORMA_LABELS[forma] || forma;
+    const drop = document.getElementById('formasPagoDrop');
+    if (drop) drop.style.display = 'none';
+    document.getElementById('panelAdelanto').style.display = forma === 'adelanto' ? 'block' : 'none';
+}
+
+document.addEventListener('click', e => {
+    const drop = document.getElementById('formasPagoDrop');
+    const inp  = document.getElementById('formasPagoInput');
+    if (drop && inp && !drop.contains(e.target) && !inp.contains(e.target)) drop.style.display = 'none';
+});
+
+const BASE_NC = '../clientes/api.php';
+let ncTiposDocumento = [];
+
+async function cargarTiposDocumentoNC() {
+    if (ncTiposDocumento.length) return;
+    const d = await apiGet(`${BASE_NC}?action=document_types`);
+    ncTiposDocumento = d.items || [];
+    const sel = document.getElementById('ncTipoDoc');
+    sel.innerHTML = ncTiposDocumento.map(t =>
+        `<option value="${t.id}" data-codigo="${esc(t.codigo)}" data-label="${esc(t.descripcion_documento||t.descripcion)}">${esc(t.descripcion_documento||t.descripcion)}</option>`
+    ).join('');
+    const pred = ncTiposDocumento.find(t => t.codigo === '1') || ncTiposDocumento[0];
+    if (pred) sel.value = String(pred.id);
+}
+
+function ncObtenerMetaDoc() {
+    const opt = document.querySelector('#ncTipoDoc option:checked');
+    return { codigo: opt?.dataset.codigo || '', label: opt?.dataset.label || 'Documento' };
+}
+
+function ncActualizarEstadoDoc() {
+    const meta = ncObtenerMetaDoc();
+    const esEmpresa = meta.codigo === '6';
+    document.getElementById('ncLabelNombre').textContent = esEmpresa ? 'Razon social' : 'Nombre completo';
+    document.getElementById('ncNombre').placeholder = esEmpresa ? 'Razon social del cliente' : 'Nombre completo del cliente';
+    document.getElementById('ncNroDoc').placeholder = meta.codigo === '6' ? '20123456789' : (meta.codigo === '1' ? '12345678' : 'Ingrese el documento');
+    document.getElementById('ncLookupNote').textContent = ['1','6'].includes(meta.codigo)
+        ? 'Consulta automatica disponible para DNI y RUC.'
+        : 'Para este tipo de documento el ingreso es manual.';
+    document.getElementById('ncDocChip').innerHTML = `<i class="fa fa-id-card"></i> ${esc(meta.label)}`;
+}
+
+async function ncConsultarDocumento() {
+    const tipo_documento_id = document.getElementById('ncTipoDoc').value;
+    const numero_documento = document.getElementById('ncNroDoc').value.trim();
+    if (!numero_documento) return Toast.warning('Ingresa el numero de documento.');
+    const btn = document.getElementById('ncBtnConsultar');
+    const prev = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+    try {
+        const r = await apiPost(BASE_NC, { action: 'lookup_document', tipo_documento_id, numero_documento });
+        if (!r.ok) throw new Error(r.error || 'No se pudo consultar.');
+        document.getElementById('ncNombre').value = r.cliente.razon_social || '';
+        if (r.cliente.contacto_nombre) document.getElementById('ncContacto').value = r.cliente.contacto_nombre;
+        if (r.cliente.direccion) document.getElementById('ncDireccion').value = r.cliente.direccion;
+        document.getElementById('ncUbigeo').value = r.cliente.ubigeo || '';
+        document.getElementById('ncUbigeoInfo').textContent = r.cliente.ubigeo
+            ? `Ubigeo: ${r.cliente.ubigeo}` : 'Documento consultado sin ubigeo disponible.';
+        Toast.success('Documento consultado.');
+    } catch (e) {
+        Toast.error(e.message || 'No se pudo consultar.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = prev;
+    }
+}
+
+async function abrirModalNuevoClienteRapido() {
+    await cargarTiposDocumentoNC();
+    document.getElementById('ncNroDoc').value = '';
+    document.getElementById('ncNombre').value = '';
+    document.getElementById('ncContacto').value = '';
+    document.getElementById('ncEmail').value = '';
+    document.getElementById('ncTelefono').value = '';
+    document.getElementById('ncWhatsapp').value = '';
+    document.getElementById('ncDireccion').value = '';
+    document.getElementById('ncNotas').value = '';
+    document.getElementById('ncUbigeo').value = '';
+    document.getElementById('ncUbigeoInfo').textContent = 'Sin ubigeo consultado.';
+    ncActualizarEstadoDoc();
+    Modal.open('modalNuevoClienteRapido');
+}
+
+async function guardarNuevoClienteRapido() {
+    const nombre = document.getElementById('ncNombre').value.trim();
+    if (!nombre) { Toast.warning('El nombre es requerido.'); return; }
+    const meta = ncObtenerMetaDoc();
+    const res = await apiPost(BASE_NC, {
+        action: 'crear',
+        tipo: meta.codigo === '6' ? 'empresa' : 'persona',
+        tipo_documento_id: document.getElementById('ncTipoDoc').value,
+        numero_documento: document.getElementById('ncNroDoc').value.trim(),
+        razon_social: nombre,
+        contacto_nombre: document.getElementById('ncContacto').value.trim(),
+        email: document.getElementById('ncEmail').value.trim(),
+        telefono: document.getElementById('ncTelefono').value.trim(),
+        whatsapp: document.getElementById('ncWhatsapp').value.trim(),
+        direccion: document.getElementById('ncDireccion').value.trim(),
+        notas: document.getElementById('ncNotas').value.trim(),
+        ubigeo: document.getElementById('ncUbigeo').value.trim(),
+        estado_crm: 'activo',
+    });
+    if (!res.ok) { Toast.error(res.error || 'Error al guardar cliente.'); return; }
+    Toast.success('Cliente registrado.');
+    Modal.close('modalNuevoClienteRapido');
+    await cargarClientesVenta();
+    if (res.id) seleccionarClienteVenta(res.id);
+}
 
 async function cargarProductosVenta() {
     try {
@@ -1077,16 +1379,14 @@ function agregarAlCarrito(id) {
 function renderCarrito() {
     const tbody = document.getElementById('ventaCarritoBody');
     if (!carritoVenta.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted" style="padding:20px">Sin productos agregados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:20px">Sin productos agregados</td></tr>';
         recalcularVentaTotals();
         return;
     }
     tbody.innerHTML = carritoVenta.map((it, idx) => `<tr>
         <td>
-            <div class="font-semibold text-sm">${esc(it.nombre)}</div>
-            <div class="text-xs text-muted">${esc(it.unidad)}</div>
+            <div class="font-semibold" style="font-size:.95rem">${esc(it.nombre)}</div>
         </td>
-        <td class="text-right text-sm ${parseFloat(it.stock)<=0&&!it.esServicio?'text-danger':'text-muted'}">${it.esServicio ? 'Servicio' : it.stock}</td>
         <td class="text-right">
             <input type="number" class="form-control text-right" style="width:80px"
                    value="${it.cantidad}" min="0.01" ${it.esServicio ? '' : `max="${it.stock}"`} step="0.01"
@@ -1096,11 +1396,6 @@ function renderCarrito() {
             <input type="number" class="form-control text-right" style="width:100px"
                    value="${it.precio}" min="0" step="0.01"
                    onchange="updateCarritoItem(${idx},'precio',this.value)">
-        </td>
-        <td class="text-right">
-            <input type="number" class="form-control text-right" style="width:70px"
-                   value="${it.descuento}" min="0" max="100" step="0.01"
-                   onchange="updateCarritoItem(${idx},'descuento',this.value)">
         </td>
         <td class="text-right font-semibold">${formatMoney(calcularLineaVentaUI(it).total)}</td>
         <td class="text-center">
@@ -1157,9 +1452,11 @@ function calcularLineaVentaUI(it) {
 function recalcularVentaTotals() {
     const totales = calcularTotalesVentaUI();
     cobroVentaTotales = totales;
-    document.getElementById('ventaSubtotal').textContent = formatMoney(totales.subtotal);
-    document.getElementById('ventaIgv').textContent      = formatMoney(totales.igv);
-    document.getElementById('ventaTotal').textContent    = formatMoney(totales.total);
+    const elSub = document.getElementById('ventaSubtotal');
+    const elIgv = document.getElementById('ventaIgv');
+    if (elSub) elSub.textContent = formatMoney(totales.subtotal);
+    if (elIgv) elIgv.textContent = formatMoney(totales.igv);
+    document.getElementById('ventaTotal').textContent = formatMoney(totales.total);
 }
 
 function calcularTotalesVentaUI() {
@@ -1197,16 +1494,40 @@ function abrirModalCobroVenta() {
     cobroVentaTotales = {...totales};
     pagoMixtoVentaActivo = false;
     pagoMixtoVentaRows = [];
-    creditoVentaActivo = false;
+    creditoVentaActivo = ventaFormaPago === 'credito';
     creditoVentaRows = [];
 
     document.getElementById('cobroVentaComprobante').textContent = labels[tipoComprobante] || 'Comprobante';
     document.getElementById('cobroVentaCliente').textContent = selectedClienteVenta ? clienteVentaLabel(selectedClienteVenta) : 'CLIENTES VARIOS';
     document.getElementById('cobroVentaDescuento').value = '0.00';
-    document.getElementById('cobroVentaMetodo').value = 'efectivo';
-    document.getElementById('cobroVentaCredito').checked = false;
-    document.getElementById('panelPagoMixtoVenta').style.display = 'none';
-    document.getElementById('panelCreditoVenta').style.display = 'none';
+
+    // Lista de ítems
+    const tbody = document.getElementById('cobroItemsList');
+    if (tbody) {
+        tbody.innerHTML = carritoVenta.map(it => {
+            const linea = calcularLineaVentaUI(it);
+            return `<tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:6px 10px">${esc(it.nombre)}</td>
+                <td style="padding:6px 8px;text-align:right">${it.cantidad}</td>
+                <td style="padding:6px 8px;text-align:right">${formatMoney(it.precio)}</td>
+                <td style="padding:6px 8px;text-align:right;font-weight:600">${formatMoney(linea.total)}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // Mostrar medios de pago seleccionados
+    document.getElementById('cobroMediosDisplay').innerHTML = ventaMediosPago
+        .map(m => `<span style="background:var(--primary);color:#fff;padding:3px 8px;border-radius:4px;font-size:.75rem;font-weight:600">${MEDIOS_LABELS[m]||m}</span>`)
+        .join(' ');
+
+    // Mostrar forma de pago
+    document.getElementById('cobroFormaDisplay').textContent = FORMA_LABELS[ventaFormaPago] || ventaFormaPago;
+
+    // Monto recibido solo si único medio efectivo y forma directo
+    const soloEfectivo = ventaMediosPago.length === 1 && ventaMediosPago[0] === 'efectivo';
+    const panelMonto = document.getElementById('panelMontoRecibido');
+    panelMonto.style.display = (soloEfectivo && ventaFormaPago === 'directo') ? 'grid' : 'none';
+
     actualizarResumenCobroVenta();
     Modal.open('modalCobroVenta');
 }
@@ -1242,27 +1563,26 @@ function actualizarResumenCobroVenta() {
 }
 
 function calcularVueltoVenta() {
-    const metodo = document.getElementById('cobroVentaMetodo')?.value || 'efectivo';
+    const soloEfectivo = ventaMediosPago && ventaMediosPago.length === 1 && ventaMediosPago[0] === 'efectivo';
+    const pagoDirecto = ventaFormaPago === 'directo';
     const total = cobroVentaTotales.total || 0;
     const input = document.getElementById('cobroVentaMonto');
-    if (pagoMixtoVentaActivo || creditoVentaActivo) {
+    if (!input) return;
+    if (!soloEfectivo || !pagoDirecto || creditoVentaActivo) {
         input.disabled = true;
-        input.value = creditoVentaActivo ? '0.00' : total.toFixed(2);
-        document.getElementById('cobroVentaVuelto').textContent = 'S/ 0.00';
-        return;
-    }
-    if (metodo !== 'efectivo') {
         input.value = total.toFixed(2);
-        input.disabled = true;
-        document.getElementById('cobroVentaVuelto').textContent = 'S/ 0.00';
+        const elV = document.getElementById('cobroVentaVuelto');
+        if (elV) elV.textContent = 'S/ 0.00';
         return;
     }
     input.disabled = false;
     const recibido = parseFloat(input.value) || 0;
     const vuelto = Math.max(0, recibido - total);
     const el = document.getElementById('cobroVentaVuelto');
-    el.textContent = formatMoney(vuelto);
-    el.style.color = recibido >= total ? 'var(--success)' : 'var(--danger)';
+    if (el) {
+        el.textContent = formatMoney(vuelto);
+        el.style.color = recibido >= total ? 'var(--success)' : 'var(--danger)';
+    }
 }
 
 function togglePagoMixtoVenta() {
@@ -1395,28 +1715,25 @@ function actualizarResumenCreditoVenta() {
 
 async function confirmarCobroVenta() {
     if (!validarVentaAntesDeCobro()) return;
-    const metodo = document.getElementById('cobroVentaMetodo').value;
-    const recibido = parseFloat(document.getElementById('cobroVentaMonto').value) || 0;
     const totalCobro = cobroVentaTotales.total || calcularTotalesVentaUI().total;
-    if (creditoVentaActivo) {
+    const esCredito = ventaFormaPago === 'credito';
+    const soloEfectivo = ventaMediosPago.length === 1 && ventaMediosPago[0] === 'efectivo';
+    const recibido = parseFloat(document.getElementById('cobroVentaMonto')?.value) || totalCobro;
+    const adelanto = ventaFormaPago === 'adelanto'
+        ? Math.max(0, parseFloat(document.getElementById('ventaMontoAdelanto')?.value) || 0) : 0;
+
+    if (esCredito) {
         const doc = String(selectedClienteVenta?.numero_documento || selectedClienteVenta?.ruc_dni || '').replace(/\D/g, '');
-        const nombre = String(selectedClienteVenta?.razon_social || selectedClienteVenta?.nombre_completo || '').toUpperCase();
-        if (!selectedClienteVenta || doc === '00000000' || nombre.includes('CLIENTES VARIOS')) {
+        if (!selectedClienteVenta || doc === '00000000') {
             Toast.warning('Para credito selecciona un cliente real.');
             return;
         }
-        const sumaCuotas = creditoVentaRows.reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
-        if (!creditoVentaRows.length || Math.abs(sumaCuotas - totalCobro) > 0.01) {
-            Toast.warning('La suma de cuotas debe coincidir con el total.');
-            return;
-        }
-    } else if (pagoMixtoVentaActivo) {
-        const sumaPagos = pagoMixtoVentaRows.reduce((a,r)=>a+(parseFloat(r.amount)||0),0);
-        if (!pagoMixtoVentaRows.length || Math.abs(sumaPagos - totalCobro) > 0.01) {
-            Toast.warning('La suma del pago mixto debe coincidir con el total.');
-            return;
-        }
-    } else if (metodo === 'efectivo' && recibido + 0.001 < totalCobro) {
+    }
+    if (ventaFormaPago === 'adelanto' && adelanto <= 0) {
+        Toast.warning('Ingresa el monto adelantado.');
+        return;
+    }
+    if (soloEfectivo && ventaFormaPago === 'directo' && recibido + 0.001 < totalCobro) {
         Toast.warning('El monto recibido es menor al total.');
         return;
     }
@@ -1428,26 +1745,30 @@ async function confirmarCobroVenta() {
     const tipoComprobante = document.getElementById('ventaTipoComprobante').value;
     const serie = document.getElementById('ventaSerie').value;
     const items = carritoVenta.map(it => ({
-        producto_id:    it.id,
-        cantidad:       it.cantidad,
+        producto_id:     it.id,
+        cantidad:        it.cantidad,
         precio_unitario: it.precio,
-        descuento:      it.descuento
+        descuento:       it.descuento
     }));
+    const paymentBreakdown = ventaMediosPago.length === 1
+        ? [{ method: ventaMediosPago[0], amount: totalCobro }]
+        : ventaMediosPago.map(m => ({ method: m, amount: 0 }));
     try {
         const res = await apiPost(BASE, {
-            action:        'venta_directa',
+            action:           'venta_directa',
             tipo_comprobante: tipoComprobante,
-            cliente_id:    selectedClienteVenta?.id || document.getElementById('ventaCliente').value || null,
-            observaciones: document.getElementById('ventaObs').value,
-            tipo_pago: creditoVentaActivo ? 'credito' : metodo,
-            monto_recibido: creditoVentaActivo ? 0 : (pagoMixtoVentaActivo
-                ? pagoMixtoVentaRows.filter(r => r.method === 'efectivo').reduce((a,r)=>a+(parseFloat(r.amount)||0),0)
-                : (metodo === 'efectivo' ? recibido : totalCobro)),
-            descuento: descuentoCobroVenta(),
-            es_credito: creditoVentaActivo,
-            payment_breakdown: pagoMixtoVentaActivo ? pagoMixtoVentaRows : [],
-            cuotas: creditoVentaActivo ? creditoVentaRows : [],
-            maquinaria_id: maquinariaVentaActual?.id || null,
+            cliente_id:       selectedClienteVenta?.id || null,
+            observaciones:    document.getElementById('ventaObs').value,
+            forma_pago:       ventaFormaPago,
+            medios_pago:      ventaMediosPago,
+            monto_adelanto:   adelanto,
+            tipo_pago:        esCredito ? 'credito' : ventaMediosPago[0],
+            monto_recibido:   esCredito ? 0 : recibido,
+            descuento:        descuentoCobroVenta(),
+            es_credito:       esCredito,
+            payment_breakdown: paymentBreakdown,
+            cuotas:           [],
+            maquinaria_id:    maquinariaVentaActual?.id || null,
             items
         });
         if (res.ok) {
@@ -1471,7 +1792,7 @@ async function confirmarCobroVenta() {
 
 // COTIZACIONES
 function buildTicketVentaHTML(data) {
-    const compLabels = { boleta:'BOLETA DE VENTA ELECTRONICA', factura:'FACTURA ELECTRONICA', nota_venta:'NOTA DE VENTA', nota_credito:'NOTA DE CREDITO ELECTRONICA' };
+    const compLabels = { boleta:'BOLETA DE VENTA ELECTRÓNICA', factura:'FACTURA ELECTRÓNICA', nota_venta:'NOTA DE VENTA', nota_credito:'NOTA DE CRÉDITO ELECTRÓNICA' };
     const tipo = data.tipo_comprobante || 'boleta';
     const cliente = data.cliente || selectedClienteVenta || {};
     const clienteNombre = cliente.nombre || cliente.razon_social || cliente.nombre_completo || 'CLIENTES VARIOS';
@@ -1480,65 +1801,119 @@ function buildTicketVentaHTML(data) {
     const fecha = fechaBase.toLocaleDateString('es-PE', { day:'2-digit', month:'2-digit', year:'numeric' });
     const hora = fechaBase.toLocaleTimeString('es-PE', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
     const items = data.items || [];
-    const row = (label, value, strong = false) => `<div style="display:flex;justify-content:space-between;font-size:${strong?'14px':'11px'};font-weight:${strong?'800':'400'};line-height:1.7"><span>${label}</span><span>${value}</span></div>`;
-    const sep = '<div style="border-top:1px dashed #111;margin:7px 0"></div>';
-    const itemsHtml = items.map(it => {
+    const PRIMARY = '#e97316';
+
+    const logoHtml = EMPRESA_VENTA.logo
+        ? `<img src="${EMPRESA_VENTA.logo}" style="max-height:84px;max-width:240px;object-fit:contain">`
+        : `<div style="font-size:22px;font-weight:900;color:${PRIMARY}">${esc(EMPRESA_VENTA.nombre || EMPRESA_VENTA.razon_social || 'IndustriaMG')}</div>`;
+
+    const itemsHtml = items.map((it, i) => {
         const qty = parseFloat(it.cantidad || 0);
         const precio = parseFloat(it.precio_unitario || it.precio || 0);
+        const dto = parseFloat(it.descuento || 0);
         const total = parseFloat(it.total || 0);
-        return `<div style="margin-bottom:6px">
-            <div style="display:flex;justify-content:space-between;font-size:11px;gap:8px">
-                <span style="word-break:break-word">${esc(it.descripcion || it.nombre || 'Producto')}</span>
-                <span style="white-space:nowrap;font-weight:700">S/ ${total.toFixed(2)}</span>
-            </div>
-            <div style="font-size:10px;color:#555">${qty} ${esc(it.unidad_codigo || 'NIU')} x S/ ${precio.toFixed(2)}</div>
-        </div>`;
+        return `<tr style="border-bottom:1px solid #e5e7eb">
+            <td style="padding:6px 8px;text-align:center;color:#555">${i+1}</td>
+            <td style="padding:6px 8px">${esc(it.descripcion || it.nombre || 'Producto')}</td>
+            <td style="padding:6px 8px;text-align:center;color:#555">${esc(it.unidad_codigo || 'NIU')}</td>
+            <td style="padding:6px 8px;text-align:right">${qty.toFixed(2)}</td>
+            <td style="padding:6px 8px;text-align:right">S/ ${precio.toFixed(2)}</td>
+            <td style="padding:6px 8px;text-align:right;color:#dc2626">${dto > 0 ? `-S/ ${dto.toFixed(2)}` : '-'}</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700">S/ ${total.toFixed(2)}</td>
+        </tr>`;
     }).join('');
 
-    return `<div style="font-family:'Courier New',monospace;color:#111;font-size:12px;line-height:1.45">
-        <div style="text-align:center;margin-bottom:10px">
-            <div style="font-size:15px;font-weight:900;text-transform:uppercase">${esc(EMPRESA_VENTA.nombre || EMPRESA_VENTA.razon_social || 'IndustriaMG')}</div>
-            ${EMPRESA_VENTA.ruc ? `<div>RUC: ${esc(EMPRESA_VENTA.ruc)}</div>` : ''}
-            ${EMPRESA_VENTA.direccion ? `<div style="font-size:10px">${esc(EMPRESA_VENTA.direccion)}</div>` : ''}
-            ${EMPRESA_VENTA.telefono ? `<div style="font-size:10px">Tel: ${esc(EMPRESA_VENTA.telefono)}</div>` : ''}
+    // Pago info
+    const formaLabel = { directo:'Contado', credito:'Crédito', adelanto:'Con adelanto' }[data.forma_pago || 'directo'] || 'Contado';
+    let mediosStr = '';
+    if (Array.isArray(data.medios_pago) && data.medios_pago.length) {
+        mediosStr = data.medios_pago.map(m => MEDIOS_LABELS[m] || m).join(', ');
+    } else if (Array.isArray(data.payment_breakdown) && data.payment_breakdown.length) {
+        mediosStr = data.payment_breakdown.map(p => MEDIOS_LABELS[p.method] || p.method).join(', ');
+    } else {
+        mediosStr = MEDIOS_LABELS[data.tipo_pago] || data.tipo_pago || 'Efectivo';
+    }
+    const pagoHtml = `${formaLabel} · ${mediosStr}`;
+
+    // Nota credito ref
+    const notaCreditoRef = tipo === 'nota_credito' && data.documento_modificado_numero_completo
+        ? `<div style="font-size:11px;color:#555"><b>Ref:</b> ${esc(data.documento_modificado_numero_completo)}${data.motivo_nota_credito ? ' — ' + esc(data.motivo_nota_credito) : ''}</div>` : '';
+
+    return `<div>
+        <table style="width:100%;border-bottom:2px solid ${PRIMARY};padding-bottom:14px;margin-bottom:14px;border-collapse:collapse">
+            <tr>
+                <td style="vertical-align:top;width:55%">
+                    ${logoHtml}
+                    ${EMPRESA_VENTA.ruc ? `<div style="margin-top:4px;font-size:11px;color:#555">RUC: ${esc(EMPRESA_VENTA.ruc)}</div>` : ''}
+                    ${EMPRESA_VENTA.direccion ? `<div style="font-size:11px;color:#555">${esc(EMPRESA_VENTA.direccion)}</div>` : ''}
+                    ${EMPRESA_VENTA.telefono ? `<div style="font-size:11px;color:#555">Tel: ${esc(EMPRESA_VENTA.telefono)}</div>` : ''}
+                </td>
+                <td style="vertical-align:top;text-align:right">
+                    <div style="background:${PRIMARY};color:#fff;padding:10px 14px;border-radius:8px;display:inline-block;text-align:center">
+                        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px">${compLabels[tipo] || 'COMPROBANTE'}</div>
+                        <div style="font-size:17px;font-weight:900;letter-spacing:1px;margin-top:2px">${esc(data.comprobante_numero || data.numero || '---')}</div>
+                    </div>
+                    <div style="margin-top:8px;font-size:11px;color:#555;text-align:right">
+                        <div>Fecha: ${fecha} ${hora}</div>
+                        ${data.comprobante && !data.comprobante.error_nubefact ? `<div style="color:#15803d;margin-top:3px">✓ ${esc(data.comprobante.estado_sunat || 'Enviado')}</div>` : ''}
+                    </div>
+                </td>
+            </tr>
+        </table>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;margin-bottom:14px">
+            <table style="width:100%;border-collapse:collapse"><tr>
+                <td style="vertical-align:top;width:50%">
+                    <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:600">${tipo==='factura'?'Razón Social / RUC':'Cliente'}</div>
+                    <div style="font-size:13px;font-weight:700;margin-top:2px">${esc(clienteNombre)}</div>
+                    <div style="font-size:11px;color:#555">${tipo==='factura'?'RUC':'Doc.'}: ${esc(clienteDoc)}</div>
+                    ${cliente.direccion ? `<div style="font-size:11px;color:#555">${esc(cliente.direccion)}</div>` : ''}
+                    ${notaCreditoRef}
+                </td>
+                <td style="vertical-align:top;text-align:right">
+                    <div style="font-size:10px;text-transform:uppercase;color:#94a3b8;font-weight:600">N° Venta</div>
+                    <div style="font-size:12px;font-weight:600;margin-top:2px">${esc(data.numero || '-')}</div>
+                    <div style="font-size:11px;color:#555;margin-top:4px"><b>Pago:</b> ${esc(pagoHtml)}</div>
+                    ${data.observaciones ? `<div style="font-size:11px;color:#555;margin-top:2px"><b>Obs:</b> ${esc(data.observaciones)}</div>` : ''}
+                </td>
+            </tr></table>
         </div>
-        <div style="border-top:2px solid #111;border-bottom:2px solid #111;text-align:center;padding:6px 0;margin-bottom:8px">
-            <div style="font-weight:800">${compLabels[tipo] || 'COMPROBANTE DE VENTA'}</div>
-            <div>${esc(data.comprobante_numero || data.numero || '---')}</div>
-            ${data.comprobante?.error_nubefact ? `<div style="font-size:10px;color:#b91c1c">SUNAT: ${esc(data.comprobante.mensaje || 'Pendiente de envio')}</div>` : ''}
-            ${data.comprobante && !data.comprobante.error_nubefact ? `<div style="font-size:10px;color:#15803d">SUNAT: ${esc(data.comprobante.estado_sunat || 'Enviado')}</div>` : ''}
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+            <thead>
+                <tr style="background:${PRIMARY};color:#fff">
+                    <th style="padding:7px 8px;text-align:center;width:28px">#</th>
+                    <th style="padding:7px 8px;text-align:left">Descripción</th>
+                    <th style="padding:7px 8px;text-align:center;width:40px">U.M.</th>
+                    <th style="padding:7px 8px;text-align:right;width:55px">Cant.</th>
+                    <th style="padding:7px 8px;text-align:right;width:80px">P. Unit.</th>
+                    <th style="padding:7px 8px;text-align:right;width:65px">Desc.</th>
+                    <th style="padding:7px 8px;text-align:right;width:80px">Total</th>
+                </tr>
+            </thead>
+            <tbody>${itemsHtml || `<tr><td colspan="7" style="padding:12px;text-align:center;color:#94a3b8">Sin items</td></tr>`}</tbody>
+        </table>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+            <tr>
+                <td style="width:52%"></td>
+                <td>
+                    <table style="width:100%;border-collapse:collapse">
+                        ${parseFloat(data.gravada||0)>0 ? `<tr><td style="padding:4px 8px;color:#555;font-size:11px">Op. Gravada:</td><td style="padding:4px 8px;text-align:right;font-size:11px">S/ ${parseFloat(data.gravada||0).toFixed(2)}</td></tr>` : ''}
+                        ${parseFloat(data.exonerada||0)>0 ? `<tr><td style="padding:4px 8px;color:#555;font-size:11px">Op. Exonerada:</td><td style="padding:4px 8px;text-align:right;font-size:11px">S/ ${parseFloat(data.exonerada||0).toFixed(2)}</td></tr>` : ''}
+                        ${parseFloat(data.inafecta||0)>0 ? `<tr><td style="padding:4px 8px;color:#555;font-size:11px">Op. Inafecta:</td><td style="padding:4px 8px;text-align:right;font-size:11px">S/ ${parseFloat(data.inafecta||0).toFixed(2)}</td></tr>` : ''}
+                        <tr><td style="padding:4px 8px;color:#555;font-size:11px">IGV (18%):</td><td style="padding:4px 8px;text-align:right;font-size:11px">S/ ${parseFloat(data.igv||0).toFixed(2)}</td></tr>
+                        ${parseFloat(data.descuento||0)>0 ? `<tr><td style="padding:4px 8px;color:#16a34a;font-size:11px">Descuento:</td><td style="padding:4px 8px;text-align:right;color:#16a34a;font-size:11px">-S/ ${parseFloat(data.descuento||0).toFixed(2)}</td></tr>` : ''}
+                        <tr style="background:${PRIMARY};color:#fff">
+                            <td style="padding:9px 8px;font-weight:700;border-radius:4px 0 0 4px">TOTAL:</td>
+                            <td style="padding:9px 8px;text-align:right;font-weight:700;font-size:14px;border-radius:0 4px 4px 0">S/ ${parseFloat(data.total||0).toFixed(2)}</td>
+                        </tr>
+                        ${parseFloat(data.vuelto||0)>0 ? `<tr><td style="padding:4px 8px;color:#555;font-size:11px">Vuelto:</td><td style="padding:4px 8px;text-align:right;font-size:11px">S/ ${parseFloat(data.vuelto||0).toFixed(2)}</td></tr>` : ''}
+                        ${parseFloat(data.monto_adelanto||0)>0 ? `<tr><td style="padding:4px 8px;color:#f97316;font-size:11px">Adelanto:</td><td style="padding:4px 8px;text-align:right;color:#f97316;font-size:11px">S/ ${parseFloat(data.monto_adelanto||0).toFixed(2)}</td></tr>` : ''}
+                    </table>
+                </td>
+            </tr>
+        </table>
+        <div style="border-top:1px solid #e2e8f0;padding-top:12px;text-align:center;font-size:11px;color:#94a3b8">
+            Gracias por su compra · ${esc(EMPRESA_VENTA.nombre || EMPRESA_VENTA.razon_social || '')}
         </div>
-        <div style="font-size:11px">
-            <div>Fecha : ${fecha} ${hora}</div>
-            <div>Venta : ${esc(data.numero || '')}</div>
-            <div>Cliente: ${esc(clienteNombre)}</div>
-            <div>Doc.   : ${esc(clienteDoc)}</div>
-            ${cliente.direccion ? `<div>Dir.   : ${esc(cliente.direccion)}</div>` : ''}
-            ${tipo === 'nota_credito' && data.documento_modificado_numero_completo ? `<div>Ref.   : ${esc(data.documento_modificado_numero_completo)}</div>` : ''}
-            ${tipo === 'nota_credito' && data.motivo_nota_credito ? `<div>Motivo : ${esc(data.motivo_nota_credito)}</div>` : ''}
-        </div>
-        ${sep}
-        <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800"><span>DESCRIPCION</span><span>TOTAL</span></div>
-        ${sep}
-        ${itemsHtml}
-        ${sep}
-        ${row('OP. GRAVADA:', `S/ ${parseFloat(data.gravada || 0).toFixed(2)}`)}
-        ${parseFloat(data.exonerada || 0) > 0 ? row('OP. EXONERADA:', `S/ ${parseFloat(data.exonerada).toFixed(2)}`) : ''}
-        ${parseFloat(data.inafecta || 0) > 0 ? row('OP. INAFECTA:', `S/ ${parseFloat(data.inafecta).toFixed(2)}`) : ''}
-        ${row('IGV (18%):', `S/ ${parseFloat(data.igv || 0).toFixed(2)}`)}
-        ${parseFloat(data.descuento || 0) > 0 ? row('DESCUENTO:', `-S/ ${parseFloat(data.descuento).toFixed(2)}`) : ''}
-        <div style="border-top:2px solid #111;margin:7px 0"></div>
-        ${row('TOTAL:', `S/ ${parseFloat(data.total || 0).toFixed(2)}`, true)}
-        <div style="border-top:2px solid #111;margin:7px 0"></div>
-        ${(data.tipo_pago === 'credito' && Array.isArray(data.cuotas) && data.cuotas.length)
-            ? data.cuotas.map((c, i) => row(`Cuota ${i + 1} (${c.due_date}):`, `S/ ${parseFloat(c.amount || 0).toFixed(2)}`)).join('')
-            : (Array.isArray(data.payment_breakdown) && data.payment_breakdown.length
-                ? data.payment_breakdown.map(p => row((p.method || 'Pago') + ':', `S/ ${parseFloat(p.amount || 0).toFixed(2)}`)).join('')
-                : row((data.tipo_pago || 'efectivo') + ':', `S/ ${parseFloat(data.monto_recibido || data.total || 0).toFixed(2)}`))
-        }
-        ${parseFloat(data.vuelto || 0) > 0 ? row('VUELTO:', `S/ ${parseFloat(data.vuelto).toFixed(2)}`) : ''}
-        ${sep}
-        <div style="text-align:center;font-size:11px;margin-top:8px">Gracias por su compra</div>
     </div>`;
 }
 
@@ -1550,10 +1925,11 @@ function mostrarTicketVenta(data) {
 
 function imprimirTicketVenta() {
     const html = document.getElementById('ventaTicketBody').innerHTML;
-    const w = window.open('', '_blank', 'width=420,height=700');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        *{box-sizing:border-box} body{font-family:'Courier New',monospace;width:80mm;margin:0 auto;padding:4mm 3mm;color:#000}
-        @media print{ @page{size:80mm auto;margin:4mm 3mm} body{padding:0} }
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprobante</title><style>
+        *{box-sizing:border-box} body{font-family:Arial,sans-serif;font-size:12px;max-width:794px;margin:0 auto;padding:20px;color:#111}
+        table{border-collapse:collapse} img{max-width:100%}
+        @media print{ @page{size:A4;margin:15mm} body{padding:0;margin:0;font-size:12px} }
     </style></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
@@ -1564,6 +1940,22 @@ function cerrarTicketVenta() {
     Modal.close('modalVentaTicket');
     limpiarCarrito();
     document.getElementById('ventaObs').value = '';
+    // Reset medios/forma pago chips
+    ventaMediosPago = ['efectivo'];
+    ventaFormaPago = 'directo';
+    actualizarMediosPagoUI();
+    seleccionarFormaPago('directo');
+    const pa = document.getElementById('panelAdelanto');
+    if (pa) pa.style.display = 'none';
+    const ma = document.getElementById('montoAdelantoInput');
+    if (ma) ma.value = '';
+    selectedClienteVenta = null;
+    const cb = document.getElementById('ventaClienteBuscar');
+    if (cb) cb.value = '';
+    const dir = document.getElementById('ventaClienteDireccion');
+    if (dir) dir.value = '';
+    const cel = document.getElementById('ventaClienteCelular');
+    if (cel) cel.value = '';
     cargarClientesVenta();
 }
 
@@ -1619,6 +2011,7 @@ function reiniciarDataTable(refName, selector, order = [[1, 'desc']]) {
         autoWidth: false,
         language: dataTableLangVentas(),
         columnDefs: [{ orderable: false, targets: -1 }],
+        dom: "<'row'<'col-sm-12 col-md-6'f><'col-sm-12 col-md-6'l>>rt<'row'<'col-sm-12 col-md-6'i><'col-sm-12 col-md-6'p>>",
     });
     return window[refName];
 }
@@ -1655,7 +2048,7 @@ function accionesVentaHistorial(v) {
     return `
         <div style="display:flex;gap:5px;flex-wrap:wrap">
             <button class="btn btn-outline btn-xs" onclick="verDetalleVenta(${id})" title="Ver detalle"><i class="fa fa-eye"></i></button>
-            <button class="btn btn-outline btn-xs" onclick="imprimirVentaHistorial(${id})" title="Imprimir ticket"><i class="fa fa-print"></i></button>
+            <button class="btn btn-outline btn-xs" onclick="imprimirVentaHistorial(${id})" title="Imprimir A4"><i class="fa fa-print"></i></button>
             ${reenviar}
             ${notaCredito}
         </div>
@@ -1836,55 +2229,10 @@ async function verDetalleVenta(id) {
 
 function renderDetalleVenta(v) {
     document.getElementById('detalleVentaTitulo').innerHTML = `<i class="fa fa-receipt" style="color:var(--primary)"></i> Detalle: ${esc(v.numero)}`;
-    const items = v.items || [];
-    const pagoHtml = renderPagoDetalleVenta(v);
     document.getElementById('detalleVentaBody').innerHTML = `
-        <div class="venta-detail-grid">
-            <div class="card" style="box-shadow:none;margin:0">
-                <div class="card-header"><span class="card-title">Datos de la venta</span></div>
-                <div style="padding:14px 16px;font-size:.9rem">
-                    <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="text-muted">Venta</span><strong>${esc(v.numero)}</strong></div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="text-muted">Comprobante</span><strong>${esc(v.comprobante_numero || 'Sin comprobante')}</strong></div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="text-muted">Tipo</span><strong>${ventaTipoLabel(v.tipo_comprobante)}</strong></div>
-                    <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="text-muted">Fecha</span><strong>${ventaFechaHoraLabel(v.created_at)}</strong></div>
-                    <div style="display:flex;justify-content:space-between"><span class="text-muted">Estado</span>${badgeVentaEstado(v.estado, v.anulado)}</div>
-                </div>
-            </div>
-            <div class="card" style="box-shadow:none;margin:0">
-                <div class="card-header"><span class="card-title">Cliente y pago</span></div>
-                <div style="padding:14px 16px;font-size:.9rem">
-                    <div class="font-semibold">${esc(v.cliente?.nombre || 'CLIENTES VARIOS')}</div>
-                    <div class="text-xs text-muted" style="margin-bottom:10px">${esc(v.cliente?.documento || '00000000')}</div>
-                    ${pagoHtml}
-                </div>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table><thead><tr>
-                <th>Producto</th><th class="text-right">Cantidad</th><th class="text-right">P. Unit.</th>
-                <th class="text-right">Dto.</th><th class="text-right">Total</th>
-            </tr></thead>
-            <tbody>
-                ${items.map(i => `
-                    <tr>
-                        <td>
-                            <div class="font-semibold text-sm">${esc(i.descripcion)}</div>
-                            <div class="text-xs text-muted">${esc(i.codigo || '')} ${esc(i.unidad_codigo || '')}</div>
-                        </td>
-                        <td class="text-right">${parseFloat(i.cantidad || 0).toFixed(3)}</td>
-                        <td class="text-right">${formatMoney(i.precio_unitario || 0)}</td>
-                        <td class="text-right">${formatMoney(i.descuento || 0)}</td>
-                        <td class="text-right font-semibold">${formatMoney(i.total || 0)}</td>
-                    </tr>
-                `).join('')}
-            </tbody></table>
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:14px">
-            <div style="min-width:260px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px">
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="text-muted">Gravada</span><strong>${formatMoney(v.gravada || v.subtotal || 0)}</strong></div>
-                ${parseFloat(v.descuento || 0) > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#16a34a"><span>Descuento</span><strong>-${formatMoney(v.descuento)}</strong></div>` : ''}
-                <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span class="text-muted">IGV</span><strong>${formatMoney(v.igv || 0)}</strong></div>
-                <div style="display:flex;justify-content:space-between;font-size:1.1rem;color:#f97316"><strong>Total</strong><strong>${formatMoney(v.total || 0)}</strong></div>
+        <div style="background:#eef2f7;padding:16px;margin:-16px;min-height:100%">
+            <div style="background:#fff;max-width:794px;margin:0 auto;padding:24px 28px;box-shadow:0 2px 14px rgba(15,23,42,.1);font-family:Arial,sans-serif;font-size:12px;color:#111">
+                ${buildTicketVentaHTML(v)}
             </div>
         </div>
     `;
@@ -1909,10 +2257,11 @@ function renderPagoDetalleVenta(v) {
 function imprimirDetalleVenta() {
     if (!ventaDetalleActual) return Toast.warning('Primero carga una venta.');
     const html = buildTicketVentaHTML(ventaDetalleActual);
-    const w = window.open('', '_blank', 'width=420,height=700');
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-        *{box-sizing:border-box} body{font-family:'Courier New',monospace;width:80mm;margin:0 auto;padding:4mm 3mm;color:#000}
-        @media print{ @page{size:80mm auto;margin:4mm 3mm} body{padding:0} }
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprobante</title><style>
+        *{box-sizing:border-box} body{font-family:Arial,sans-serif;font-size:12px;max-width:794px;margin:0 auto;padding:20px;color:#111}
+        table{border-collapse:collapse} img{max-width:100%}
+        @media print{ @page{size:A4;margin:15mm} body{padding:0;margin:0;font-size:12px} }
     </style></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
@@ -1923,16 +2272,17 @@ async function imprimirVentaHistorial(id) {
     try {
         const d = await apiGet(`${BASE}?action=venta_detalle&id=${id}`);
         const html = buildTicketVentaHTML(d.venta);
-        const w = window.open('', '_blank', 'width=420,height=700');
-        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-            *{box-sizing:border-box} body{font-family:'Courier New',monospace;width:80mm;margin:0 auto;padding:4mm 3mm;color:#000}
-            @media print{ @page{size:80mm auto;margin:4mm 3mm} body{padding:0} }
+        const w = window.open('', '_blank', 'width=900,height=700');
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comprobante</title><style>
+            *{box-sizing:border-box} body{font-family:Arial,sans-serif;font-size:12px;max-width:794px;margin:0 auto;padding:20px;color:#111}
+            table{border-collapse:collapse} img{max-width:100%}
+            @media print{ @page{size:A4;margin:15mm} body{padding:0;margin:0;font-size:12px} }
         </style></head><body>${html}</body></html>`);
         w.document.close();
         w.focus();
         setTimeout(() => w.print(), 350);
     } catch(e) {
-        Toast.error('No se pudo preparar el ticket.');
+        Toast.error('No se pudo preparar la impresión.');
     }
 }
 
@@ -2066,72 +2416,78 @@ function esClienteRuc(c) {
     return c?.tipo_documento_codigo === '6' || doc.length === 11;
 }
 
-function syncVentaClienteSelect(cliente) {
-    selectedClienteVenta = cliente || null;
-    const $select = window.jQuery ? window.jQuery('#ventaCliente') : null;
-    if (!$select || !$select.length || !$select.data('select2')) {
-        if (cliente) document.getElementById('ventaCliente').value = cliente.id;
-        return;
-    }
-    if (!cliente) {
-        $select.val(null).trigger('change.select2');
-        return;
-    }
-    const value = String(cliente.id);
-    let option = $select.find(`option[value="${value}"]`);
-    if (!option.length) {
-        option = window.jQuery(new Option(clienteVentaLabel(cliente), value, true, true));
-        option[0]._cliente = cliente;
-        $select.append(option);
-    } else {
-        option.prop('selected', true);
-        option[0]._cliente = cliente;
-    }
-    $select.val(value).trigger('change.select2');
+function ventaClientesUltimos() {
+    return [...clientesVenta].sort((a, b) => b.id - a.id).slice(0, 5);
 }
 
-function setupVentaSelect2() {
-    if (typeof window.jQuery === 'undefined' || typeof window.jQuery.fn.select2 === 'undefined') return;
-    const $select = window.jQuery('#ventaCliente');
-    if (!$select.length || $select.data('select2')) return;
-    $select.select2({
-        width: '100%',
-        placeholder: 'Buscar cliente por nombre, DNI o RUC',
-        allowClear: false,
-        templateResult: item => item.text,
-        templateSelection: item => item.text,
-    });
-    $select.on('select2:select', event => {
-        const option = event.params?.data?.element;
-        selectedClienteVenta = option?._cliente || clientesVenta.find(c => String(c.id) === String(event.params.data.id)) || null;
-    });
+function mostrarClientesDropVenta(lista) {
+    const drop = document.getElementById('ventaClienteDrop');
+    if (!drop) return;
+    if (!lista.length) {
+        drop.innerHTML = '<div style="padding:10px 12px;font-size:.82rem;color:var(--text-secondary)">Sin resultados</div>';
+    } else {
+        drop.innerHTML = lista.map(c => {
+            const nombre = c.razon_social || c.nombre_completo || 'Cliente';
+            const doc = c.numero_documento || c.ruc_dni || '';
+            return `<div onclick="seleccionarClienteVenta(${c.id})"
+                style="padding:8px 12px;cursor:pointer;font-size:.82rem;border-bottom:1px solid var(--border)"
+                onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">
+                <div style="font-weight:600">${esc(nombre)}</div>
+                ${doc ? `<div style="font-size:.75rem;color:var(--text-secondary)">${esc(doc)}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+    drop.style.display = 'block';
 }
+
+function filtrarClientesVenta() {
+    const q = (document.getElementById('ventaClienteBuscar')?.value || '').toLowerCase().trim();
+    if (!q) { mostrarClientesDropVenta(ventaClientesUltimos()); return; }
+    const res = clientesVenta.filter(c => {
+        const nombre = (c.razon_social || c.nombre_completo || '').toLowerCase();
+        const doc = (c.numero_documento || c.ruc_dni || '').toLowerCase();
+        return nombre.includes(q) || doc.includes(q);
+    }).slice(0, 5);
+    mostrarClientesDropVenta(res);
+}
+
+function seleccionarClienteVenta(id) {
+    const c = clientesVenta.find(x => String(x.id) === String(id));
+    selectedClienteVenta = c || null;
+    const input = document.getElementById('ventaClienteBuscar');
+    if (input) input.value = c ? clienteVentaLabel(c) : '';
+    const drop = document.getElementById('ventaClienteDrop');
+    if (drop) drop.style.display = 'none';
+    const esGenerico = !c || String(c.numero_documento || c.ruc_dni || '') === '00000000';
+    const dir = document.getElementById('ventaClienteDireccion');
+    if (dir) dir.value = esGenerico ? '' : (c?.direccion || '');
+    const cel = document.getElementById('ventaClienteCelular');
+    if (cel) cel.value = esGenerico ? '' : (c?.telefono || c?.celular || '');
+}
+
+document.addEventListener('click', e => {
+    const drop = document.getElementById('ventaClienteDrop');
+    const input = document.getElementById('ventaClienteBuscar');
+    if (drop && input && !drop.contains(e.target) && e.target !== input) {
+        drop.style.display = 'none';
+    }
+});
 
 async function cargarClientesVenta(tipo = document.getElementById('ventaTipoComprobante')?.value || 'boleta') {
     const d = await apiGet(`${BASE}?action=clientes_combo&tipo_comprobante=${encodeURIComponent(tipo)}`);
     clientesVenta = d.clientes || [];
-    const select = document.getElementById('ventaCliente');
-    select.innerHTML = clientesVenta.map(c => `<option value="${c.id}">${esc(clienteVentaLabel(c))}</option>`).join('');
-    Array.from(select.options).forEach(opt => {
-        opt._cliente = clientesVenta.find(c => String(c.id) === String(opt.value)) || null;
-    });
-
-    if (window.jQuery && window.jQuery.fn.select2) {
-        const $select = window.jQuery('#ventaCliente');
-        if ($select.data('select2')) $select.trigger('change.select2');
-    }
 
     let elegido = null;
     if (tipo === 'boleta') {
         elegido = clientesVenta.find(c => String(c.numero_documento || c.ruc_dni || '') === '00000000')
             || clientesVenta.find(c => String(c.razon_social || c.nombre_completo || '').toUpperCase().includes('CLIENTES VARIOS'))
-            || clientesVenta[0] || null;
+            || null;
     } else if (tipo === 'factura') {
         elegido = clientesVenta.find(esClienteRuc) || null;
     } else {
-        elegido = defaultClienteVenta || clientesVenta[0] || null;
+        elegido = defaultClienteVenta || null;
     }
-    syncVentaClienteSelect(elegido);
+    if (elegido) seleccionarClienteVenta(elegido.id);
 }
 
 async function cargarClientePorDefectoVenta() {
@@ -2156,8 +2512,16 @@ function actualizarSeriesVenta() {
 
     if (!select) return;
     select.innerHTML = lista.length
-        ? lista.map(s => `<option value="${esc(s.serie)}">${esc(s.serie)} - siguiente ${String((parseInt(s.ultimo_numero) || 0) + 1).padStart(8, '0')}</option>`).join('')
+        ? lista.map(s => `<option value="${esc(s.serie)}">${esc(s.serie)}</option>`).join('')
         : '<option value="">Sin serie activa</option>';
+
+    const corrEl = document.getElementById('ventaCorrelatvoDisplay');
+    if (corrEl) {
+        const s = lista[0];
+        corrEl.value = s
+            ? `${s.serie}-${String((parseInt(s.ultimo_numero) || 0) + 1).padStart(4, '0')}`
+            : '---';
+    }
 
     if (info) {
         const etiquetas = {
@@ -2170,40 +2534,59 @@ function actualizarSeriesVenta() {
 }
 
 async function cargarCombos() {
-    const [dc, dm, dp, dpr, ds, dmod] = await Promise.all([
+    // Fase 1: datos críticos para la vista inicial (cliente + correlativo) — aparecen de inmediato
+    const [dc, ds, ddef] = await Promise.all([
         apiGet(`${BASE}?action=clientes_combo`),
-        apiGet(`${BASE}?action=maquinarias_combo`),
-        apiGet(`${BASE}?action=proyectos_combo`),
-        apiGet(`${BASE}?action=productos_combo`),
         apiGet(`${BASE}?action=series_disponibles`),
-        apiGet(`${BASE}?action=catalogo_modelos`)
+        apiGet(`${BASE}?action=default_cliente`)
     ]);
 
-    const opts = '<option value="">Sin cliente / clientes varios</option>' + (dc.clientes||[]).map(c=>`<option value="${c.id}">${esc(c.razon_social || c.nombre_completo || 'Cliente')}</option>`).join('');
-    document.getElementById('cotCliente').innerHTML   = opts;
-    document.getElementById('ovCliente').innerHTML    = opts;
-    maqCatalogoModelos = (dmod.modelos || []).map(m => ({
-        ...m,
-        colores: typeof m.colores === 'string' ? (JSON.parse(m.colores || '[]') || []) : (m.colores || [])
-    }));
-    poblarSelectCatalogoMaq();
     seriesVenta = { nota_venta: [], boleta: [], factura: [] };
     (ds.series || []).forEach(s => {
         if (!seriesVenta[s.tipo]) seriesVenta[s.tipo] = [];
         seriesVenta[s.tipo].push(s);
     });
     actualizarSeriesVenta();
-    setupVentaSelect2();
-    await cargarClientePorDefectoVenta();
-    await cargarClientesVenta();
+
+    clientesVenta = dc.clientes || [];
+    defaultClienteVenta = ddef.cliente || null;
+    const tipo = document.getElementById('ventaTipoComprobante')?.value || 'boleta';
+    let elegido = null;
+    if (tipo === 'boleta') {
+        elegido = clientesVenta.find(c => String(c.numero_documento || c.ruc_dni || '') === '00000000')
+            || clientesVenta.find(c => String(c.razon_social || c.nombre_completo || '').toUpperCase().includes('CLIENTES VARIOS'))
+            || null;
+    } else if (tipo === 'factura') {
+        elegido = clientesVenta.find(esClienteRuc) || null;
+    } else {
+        elegido = defaultClienteVenta || null;
+    }
+    if (elegido) seleccionarClienteVenta(elegido.id);
+
+    const opts = '<option value="">Sin cliente / clientes varios</option>' + clientesVenta.map(c=>`<option value="${c.id}">${esc(c.razon_social || c.nombre_completo || 'Cliente')}</option>`).join('');
+    document.getElementById('cotCliente').innerHTML = opts;
+    document.getElementById('ovCliente').innerHTML  = opts;
+
     combosLoaded = true;
 
-    document.getElementById('srvMaquinaria').innerHTML = '<option value="">Seleccionar</option>' +
-        (dm.maquinarias||[]).map(m=>`<option value="${m.id}">${esc(m.label)}</option>`).join('');
-
-    proyectosCache = dp.proyectos || [];
-    productosCache = dpr.productos || [];
-    renderProyectosOV();
+    // Fase 2: datos secundarios — se cargan en background sin bloquear la UI
+    Promise.all([
+        apiGet(`${BASE}?action=maquinarias_combo`),
+        apiGet(`${BASE}?action=proyectos_combo`),
+        apiGet(`${BASE}?action=productos_combo`),
+        apiGet(`${BASE}?action=catalogo_modelos`)
+    ]).then(([dm, dp, dpr, dmod]) => {
+        maqCatalogoModelos = (dmod.modelos || []).map(m => ({
+            ...m,
+            colores: typeof m.colores === 'string' ? (JSON.parse(m.colores || '[]') || []) : (m.colores || [])
+        }));
+        poblarSelectCatalogoMaq();
+        document.getElementById('srvMaquinaria').innerHTML = '<option value="">Seleccionar</option>' +
+            (dm.maquinarias||[]).map(m=>`<option value="${m.id}">${esc(m.label)}</option>`).join('');
+        proyectosCache = dp.proyectos || [];
+        productosCache = dpr.productos || [];
+        renderProyectosOV();
+    });
 }
 
 function abrirModalCotizacion(clienteId=null) {

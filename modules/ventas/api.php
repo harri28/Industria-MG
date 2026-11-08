@@ -473,7 +473,7 @@ try { switch ($action) {
                 fecha_emision=:fe, fecha_vigencia=:fv, observaciones=:obs, subtotal=:sub, igv=:igv, total=:total
                 WHERE id=:id")
                ->execute([':id'=>(int)$input['id'], ':cid'=>($input['cliente_id']??null)?:null,
-                ':estado'=>$input['estado']??'borrador', ':vd'=>(int)($input['vigencia_dias']??30),
+                ':estado'=>$input['estado']??'aprobada', ':vd'=>(int)($input['vigencia_dias']??30),
                 ':fe'=>($input['fecha_emision']??null)?:date('Y-m-d'), ':fv'=>$fecha_vigencia,
                 ':obs'=>($input['observaciones']??null)?:null,
                 ':sub'=>$subtotal, ':igv'=>$igv, ':total'=>$total]);
@@ -484,7 +484,7 @@ try { switch ($action) {
             $stmt = $db->prepare("INSERT INTO cotizaciones (numero,cliente_id,estado,vigencia_dias,fecha_emision,fecha_vigencia,observaciones,subtotal,igv,total)
                 VALUES (:num,:cid,:estado,:vd,:fe,:fv,:obs,:sub,:igv,:total) RETURNING id");
             $stmt->execute([':num'=>$numero, ':cid'=>($input['cliente_id']??null)?:null,
-                ':estado'=>$input['estado']??'borrador', ':vd'=>(int)($input['vigencia_dias']??30),
+                ':estado'=>$input['estado']??'aprobada', ':vd'=>(int)($input['vigencia_dias']??30),
                 ':fe'=>($input['fecha_emision']??null)?:date('Y-m-d'), ':fv'=>$fecha_vigencia,
                 ':obs'=>($input['observaciones']??null)?:null,
                 ':sub'=>$subtotal, ':igv'=>$igv, ':total'=>$total]);
@@ -504,7 +504,7 @@ try { switch ($action) {
         jsonResponse(['ok'=>true,'id'=>$cot_id,'numero'=>$cot_numero]);
 
     case 'cotizacion_estado':
-        $allowed = ['borrador','enviada','aprobada','rechazada','vencida'];
+        $allowed = ['aprobada','rechazada','vencida'];
         if (!in_array($input['estado']??'',$allowed)) jsonResponse(['error'=>'Estado invalido.'],400);
         $db->prepare("UPDATE cotizaciones SET estado=:estado WHERE id=:id")
            ->execute([':estado'=>$input['estado'],':id'=>(int)($input['id']??0)]);
@@ -791,8 +791,18 @@ try { switch ($action) {
         $inafecta = 0.00;
         $descuentoGlobal = round(max(0, (float)($input['descuento'] ?? 0)), 2);
         $taxEnabled = ventaTaxHabilitado($db);
-        $esCredito = !empty($input['es_credito']);
-        $tipoPago = $esCredito ? 'credito' : (trim((string)($input['tipo_pago'] ?? 'efectivo')) ?: 'efectivo');
+        $formaPagoLocal = in_array(($input['forma_pago'] ?? 'directo'), ['directo','credito','adelanto'], true)
+            ? ($input['forma_pago'] ?? 'directo') : 'directo';
+        $esCredito = $formaPagoLocal === 'credito' || !empty($input['es_credito']);
+        $montoAdelanto = $formaPagoLocal === 'adelanto' ? round(max(0, (float)($input['monto_adelanto'] ?? 0)), 2) : 0.00;
+        // Medios de pago (array de strings: efectivo, yape, plin, transferencia, visa)
+        $mediosPagoInput = array_filter(array_map(
+            fn($m) => strtolower(trim((string)$m)),
+            (array)($input['medios_pago'] ?? [])
+        ));
+        $mediosPagoInput = array_values(array_unique($mediosPagoInput));
+        if (empty($mediosPagoInput)) $mediosPagoInput = [trim((string)($input['tipo_pago'] ?? 'efectivo')) ?: 'efectivo'];
+        $tipoPago = $esCredito ? 'credito' : $mediosPagoInput[0];
         $paymentBreakdown = [];
         $cuotas = [];
         $maquinariaId = (int)($input['maquinaria_id'] ?? 0);
@@ -1030,6 +1040,7 @@ try { switch ($action) {
         $inafecta = round($inafecta, 2);
 
         if ($esCredito) {
+            // Crédito simple: no requiere cuotas (se detallan en Órdenes de Venta)
             foreach (($input['cuotas'] ?? []) as $cuota) {
                 $amount = round((float)($cuota['amount'] ?? 0), 2);
                 $due = trim((string)($cuota['due_date'] ?? ''));
@@ -1037,31 +1048,13 @@ try { switch ($action) {
                     $cuotas[] = ['amount' => $amount, 'due_date' => $due];
                 }
             }
-            if (!$cuotas) {
-                $db->rollBack();
-                jsonResponse(['error' => 'Agrega al menos una cuota para el pago a credito.'], 400);
-            }
-            $cuotasTotal = round(array_sum(array_column($cuotas, 'amount')), 2);
-            if (abs($cuotasTotal - $total) > 0.01) {
-                $db->rollBack();
-                jsonResponse(['error' => 'La suma de cuotas debe coincidir con el total.'], 400);
-            }
+            $paymentBreakdown = array_map(fn($m) => ['method' => $m, 'amount' => 0], $mediosPagoInput);
         } else {
-            foreach (($input['payment_breakdown'] ?? []) as $pago) {
-                $method = strtolower(trim((string)($pago['method'] ?? '')));
-                $amount = round((float)($pago['amount'] ?? 0), 2);
-                if ($method !== '' && $amount > 0) {
-                    $paymentBreakdown[] = ['method' => $method, 'amount' => $amount];
-                }
-            }
-            if ($paymentBreakdown) {
-                $pagosTotal = round(array_sum(array_column($paymentBreakdown, 'amount')), 2);
-                if (abs($pagosTotal - $total) > 0.01) {
-                    $db->rollBack();
-                    jsonResponse(['error' => 'La suma del pago mixto debe coincidir con el total.'], 400);
-                }
+            // Construir payment_breakdown desde medios_pago
+            if (count($mediosPagoInput) === 1) {
+                $paymentBreakdown = [['method' => $mediosPagoInput[0], 'amount' => $total]];
             } else {
-                $paymentBreakdown[] = ['method' => $tipoPago, 'amount' => $total];
+                $paymentBreakdown = array_map(fn($m) => ['method' => $m, 'amount' => 0], $mediosPagoInput);
             }
         }
 
@@ -1086,19 +1079,20 @@ try { switch ($action) {
             'items' => $lineas,
         ], JSON_UNESCAPED_UNICODE);
 
+        $sunatFormaPago = $esCredito ? 'Credito' : 'Contado';
         $stmtComp = $db->prepare("
             INSERT INTO comprobantes_electronicos
             (empresa_emisora_id, cliente_id, orden_venta_id, serie_id, tipo_documento_id,
              codigo_tipo_documento, tipo_operacion_id, operacion_tipo_codigo, moneda_id,
-             moneda_codigo, forma_pago_id, sunat_forma_pago, numero, serie, correlativo,
+             moneda_codigo, forma_pago_id, sunat_forma_pago, forma_pago, numero, serie, correlativo,
              fecha_emision, observaciones, subtotal, descuento_global, gravada, exonerada, inafecta, igv, total,
-             monto_credito, vuelto, cuotas, payment_breakdown, payload_json, estado)
+             anticipo, monto_credito, vuelto, cuotas, payment_breakdown, payload_json, estado)
             VALUES
             (:empresa_id, :cliente_id, :orden_id, :serie_id, :tipo_documento_id,
              :codigo_tipo_documento, :tipo_operacion_id, '0101', :moneda_id,
-             'PEN', :forma_pago_id, 'Contado', :numero, :serie, :correlativo,
+             'PEN', :forma_pago_id, :sunat_forma_pago, :forma_pago_local, :numero, :serie, :correlativo,
              CURRENT_DATE, :observaciones, :subtotal, :descuento_global, :gravada, :exonerada, :inafecta,
-             :igv, :total, :monto_credito, :vuelto, :cuotas, :payment_breakdown, :payload_json, :estado)
+             :igv, :total, :anticipo, :monto_credito, :vuelto, :cuotas, :payment_breakdown, :payload_json, :estado)
             RETURNING id
         ");
         $stmtComp->execute([
@@ -1111,6 +1105,9 @@ try { switch ($action) {
             ':tipo_operacion_id' => $operacionId,
             ':moneda_id' => $monedaId,
             ':forma_pago_id' => $formaPagoId,
+            ':sunat_forma_pago' => $sunatFormaPago,
+            ':forma_pago_local' => $formaPagoLocal,
+            ':anticipo' => $montoAdelanto,
             ':numero' => $numeroComprobante,
             ':serie' => $serieRow['serie'],
             ':correlativo' => $correlativo,
@@ -1224,6 +1221,9 @@ try { switch ($action) {
             'total' => $total,
             'descuento' => $descuentoGlobal,
             'tipo_pago' => $tipoPago,
+            'forma_pago' => $formaPagoLocal,
+            'medios_pago' => $mediosPagoInput,
+            'monto_adelanto' => $montoAdelanto,
             'monto_recibido' => $montoRecibido,
             'vuelto' => $vuelto,
             'payment_breakdown' => $paymentBreakdown,
@@ -1833,6 +1833,22 @@ try { switch ($action) {
     case 'productos_combo':
         $stmt = $db->query("SELECT id, codigo, nombre, unidad, precio_venta FROM productos WHERE activo ORDER BY nombre");
         jsonResponse(['ok'=>true,'productos'=>$stmt->fetchAll()]);
+
+    case 'cliente_rapido_guardar':
+        $nombre = trim((string)($input['nombre'] ?? ''));
+        if (!$nombre) jsonResponse(['error' => 'El nombre es requerido.'], 400);
+        $tipoDocCodigo = trim((string)($input['tipo_documento_codigo'] ?? '1'));
+        $nroDoc = preg_replace('/\s+/', '', (string)($input['numero_documento'] ?? ''));
+        $telefono = trim((string)($input['telefono'] ?? ''));
+        $campoNombre = in_array($tipoDocCodigo, ['6'], true) ? 'razon_social' : 'nombre_completo';
+        $stmtNc = $db->prepare("
+            INSERT INTO clientes (tipo_documento_codigo, numero_documento, {$campoNombre}, telefono, activo)
+            VALUES (:tdc, :nro, :nombre, :tel, TRUE)
+            RETURNING id
+        ");
+        $stmtNc->execute([':tdc'=>$tipoDocCodigo, ':nro'=>$nroDoc?:null, ':nombre'=>$nombre, ':tel'=>$telefono?:null]);
+        $newId = (int)$stmtNc->fetchColumn();
+        jsonResponse(['ok'=>true,'id'=>$newId,'nombre'=>$nombre]);
 
     default:
         jsonResponse(['error'=>'Accion no reconocida.'],400);
