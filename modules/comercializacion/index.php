@@ -1292,13 +1292,18 @@ function catSpecsRender() {
 }
 
 function catSpecGrupoAgregar() {
+    const modalBody = document.querySelector('#modalCatalogo .modal-body');
+    const prevScroll = modalBody ? modalBody.scrollTop : 0;
+
     catSpecs.push({ titulo: '', descripcion: '', params: [] });
     catSpecsRender();
-    // Enfocar el título del nuevo grupo
-    setTimeout(() => {
+
+    if (modalBody) modalBody.scrollTop = prevScroll;
+    requestAnimationFrame(() => {
+        if (modalBody) modalBody.scrollTop = prevScroll;
         const inputs = document.querySelectorAll('#catSpecsList input[placeholder="Título del grupo (ej. Potencia)"]');
-        if (inputs.length) inputs[inputs.length - 1].focus();
-    }, 50);
+        if (inputs.length) inputs[inputs.length - 1].focus({ preventScroll: true });
+    });
 }
 
 function catSpecGrupoQuitar(gi) {
@@ -1307,21 +1312,26 @@ function catSpecGrupoQuitar(gi) {
 }
 
 function catSpecParamAgregar(gi) {
+    // El re-render completo del list resetea el scroll del modal; lo guardamos y restauramos
+    const modalBody = document.querySelector('#modalCatalogo .modal-body');
+    const prevScroll = modalBody ? modalBody.scrollTop : 0;
+
     catSpecs[gi].params.push({ nombre: '', valor: '', unidad: '', descripcion: '' });
     catSpecsRender();
-    // Enfocar el nombre del nuevo parámetro DEL GRUPO AL QUE SE AGREGÓ (no al final del modal)
-    setTimeout(() => {
+
+    // Restaurar scroll INMEDIATAMENTE (antes de que el browser pinte)
+    if (modalBody) modalBody.scrollTop = prevScroll;
+
+    // Enfocar el input nuevo del grupo correcto, sin scrollear
+    requestAnimationFrame(() => {
+        if (modalBody) modalBody.scrollTop = prevScroll;
         const tbody = document.querySelector(`#catSpecsList tbody[data-gi="${gi}"]`);
         if (!tbody) return;
         const rows = tbody.querySelectorAll('tr');
         if (!rows.length) return;
         const inp = rows[rows.length - 1].querySelector('input');
-        if (inp) {
-            // scroll suave al nuevo input dentro del modal, no al final
-            inp.focus({ preventScroll: true });
-            inp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }, 50);
+        if (inp) inp.focus({ preventScroll: true });
+    });
 }
 
 function catSpecParamQuitar(gi, pi) {
