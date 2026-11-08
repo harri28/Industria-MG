@@ -493,7 +493,7 @@ foreach ($logoCandidates as $lf) {
     </div>
     <div class="card">
         <div class="card-header">
-            <span class="card-title"><i class="fa fa-gears"></i> Catalogo de Maquinarias</span>
+            <span class="card-title"><i class="fa fa-gears"></i> Maquinarias disponibles</span>
             <div class="card-actions">
                 <select class="form-control" id="filtroEstadoMaq" style="width:160px" onchange="cargarMaquinarias()">
                     <option value="todos">Todos los estados</option>
@@ -510,10 +510,10 @@ foreach ($logoCandidates as $lf) {
         <div class="table-responsive">
             <table><thead><tr>
                 <th>Codigo</th><th>Modelo</th><th>Nro. Serie</th><th>Stock</th>
-                <th>Costo</th><th>Precio venta</th>
+                <th>Costo</th><th>Precio venta</th><th>Fecha de registro</th>
                 <th>Acciones</th>
             </tr></thead>
-            <tbody id="maquinariasBody"><tr><td colspan="7" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
+            <tbody id="maquinariasBody"><tr><td colspan="8" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
         </div>
     </div>
 </div>
@@ -2854,7 +2854,7 @@ async function cargarMaquinarias() {
     }
 
     const lista = maquinariasVenta;
-    if (!lista.length) { tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted">Sin maquinarias registradas.</td></tr>'; return; }
+    if (!lista.length) { tbody.innerHTML='<tr><td colspan="8" class="text-center text-muted">Sin maquinarias registradas.</td></tr>'; return; }
     const vBadge = { disponible:'badge-entrega', vendida:'badge-fabricacion', reservada:'badge-pruebas' };
     tbody.innerHTML = lista.map(m => `<tr style="cursor:pointer" onclick="editarMaquinaria(${m.id})">
         <td class="text-xs text-muted">${esc(m.codigo||'-')}</td>
@@ -2865,6 +2865,7 @@ async function cargarMaquinarias() {
             : (m.estado_venta === 'vendida' ? 0 : (m.stock_actual !== null && m.stock_actual !== undefined ? parseInt(parseFloat(m.stock_actual)) : 1))}</td>
         <td class="font-semibold">${formatMoney(m.costo_total_calc || m.costo_total || 0)}</td>
         <td class="font-bold" style="color:var(--primary)">${formatMoney(m.precio_venta_calc || m.precio_venta || 0)}</td>
+        <td class="text-sm">${ventaFechaHoraLabel(m.created_at)}</td>
         <td onclick="event.stopPropagation()">
             ${(m.estado_venta||'disponible') === 'vendida'
                 ? `<button class="btn btn-outline btn-xs" onclick="nuevoServicioMaq(${m.id})" title="Nuevo servicio"><i class="fa fa-screwdriver-wrench"></i></button>`
