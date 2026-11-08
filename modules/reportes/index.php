@@ -429,16 +429,16 @@ require_once __DIR__ . '/../../includes/header.php';
         <table class="table" style="margin:0;font-size:.83rem">
             <thead>
                 <tr>
-                    <th>Número</th><th>Tipo</th><th>Cliente</th><th>RUC / DNI</th><th>Fecha</th>
+                    <th>Número</th><th>Tipo</th><th>Orden Venta</th><th>Cliente</th><th>RUC / DNI</th><th>Fecha</th>
                     <th class="text-right">Subtotal</th><th class="text-right">IGV</th><th class="text-right">Total</th><th>Estado</th>
                 </tr>
             </thead>
             <tbody id="tbComprobantes">
-                <tr><td colspan="9" class="text-center text-muted">Selecciona un rango y filtra</td></tr>
+                <tr><td colspan="10" class="text-center text-muted">Selecciona un rango y filtra</td></tr>
             </tbody>
             <tfoot id="tfComprobantes" style="display:none">
                 <tr style="font-weight:700;background:#f8fafc">
-                    <td colspan="5">TOTALES</td>
+                    <td colspan="6">TOTALES</td>
                     <td class="text-right" id="compTotalSubtotal"></td>
                     <td class="text-right" id="compTotalIgv"></td>
                     <td class="text-right" id="compTotalTotal"></td>
@@ -1090,7 +1090,7 @@ async function cargarComprobantes() {
     const q      = document.getElementById('compBuscar').value.trim();
     const tb     = document.getElementById('tbComprobantes');
 
-    tb.innerHTML = '<tr><td colspan="9" class="text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Cargando…</td></tr>';
+    tb.innerHTML = '<tr><td colspan="10" class="text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Cargando…</td></tr>';
 
     try {
         const url = `<?= APP_BASE ?>modules/reportes/api.php?action=comprobantes`
@@ -1117,7 +1117,7 @@ async function cargarComprobantes() {
         }).join('');
 
         if (!cs.length) {
-            tb.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Sin comprobantes en el período</td></tr>';
+            tb.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Sin comprobantes en el período</td></tr>';
             document.getElementById('tfComprobantes').style.display = 'none';
             return;
         }
@@ -1143,6 +1143,7 @@ async function cargarComprobantes() {
                     ${c.hash_cdr?'<i class="fa fa-circle-check" style="color:#16a34a;margin-left:4px;font-size:.75rem" title="CDR recibido"></i>':''}
                 </td>
                 <td><span style="background:${bg};color:${col};padding:2px 7px;border-radius:6px;font-size:.72rem;font-weight:600">${tipoLabel(td)}</span></td>
+                <td style="font-size:.78rem;color:#475569;white-space:nowrap">${c.orden_venta_codigo ? escHtml(c.orden_venta_codigo) : '<span style="color:#cbd5e1">—</span>'}</td>
                 <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(c.cliente)}">${escHtml(c.cliente)}</td>
                 <td style="color:#64748b">${escHtml(c.cliente_ruc||'—')}</td>
                 <td style="white-space:nowrap">${formatDate(c.fecha_emision)}</td>

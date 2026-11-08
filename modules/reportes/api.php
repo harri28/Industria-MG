@@ -399,8 +399,8 @@ try { switch ($action) {
             SELECT ce.id,
                    ce.serie || '-' || ce.numero AS numero_completo,
                    ce.serie, ce.numero,
-                   td.codigo  AS tipo_doc,
-                   td.nombre  AS tipo_doc_nombre,
+                   td.codigo      AS tipo_doc,
+                   td.descripcion AS tipo_doc_nombre,
                    ce.fecha_emision,
                    cl.razon_social AS cliente,
                    cl.ruc          AS cliente_ruc,
@@ -408,10 +408,13 @@ try { switch ($action) {
                    ce.estado,
                    ce.hash_cdr,
                    ce.estado_cpe,
-                   ce.orden_venta_id
+                   ce.orden_venta_id,
+                   ov.codigo AS orden_venta_codigo,
+                   ov.estado AS orden_venta_estado
             FROM comprobantes_electronicos ce
             JOIN clientes cl                 ON cl.id  = ce.cliente_id
             LEFT JOIN fe_tipos_documento td  ON td.id  = ce.tipo_documento_id
+            LEFT JOIN ordenes_venta ov        ON ov.id  = ce.orden_venta_id
             WHERE $where
             ORDER BY ce.fecha_emision DESC, ce.id DESC
             LIMIT 500");
@@ -420,8 +423,8 @@ try { switch ($action) {
 
         // Resumen por tipo
         $stmtR = $db->prepare("
-            SELECT td.codigo AS tipo_doc,
-                   td.nombre AS tipo_doc_nombre,
+            SELECT td.codigo      AS tipo_doc,
+                   td.descripcion AS tipo_doc_nombre,
                    COUNT(*)  AS cantidad,
                    SUM(ce.subtotal) AS subtotal,
                    SUM(ce.igv)      AS igv,
@@ -429,7 +432,7 @@ try { switch ($action) {
             FROM comprobantes_electronicos ce
             LEFT JOIN fe_tipos_documento td ON td.id = ce.tipo_documento_id
             WHERE ce.fecha_emision BETWEEN :desde AND :hasta
-            GROUP BY td.codigo, td.nombre
+            GROUP BY td.codigo, td.descripcion
             ORDER BY total DESC");
         $stmtR->execute([':desde' => $desde, ':hasta' => $hasta]);
         $resumen = $stmtR->fetchAll();
