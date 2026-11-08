@@ -30,10 +30,10 @@ try { switch ($action) {
         $proy_retrasados = $db->query("SELECT COUNT(*) FROM proyectos WHERE activo AND estado NOT IN ('completado','cancelado') AND fecha_entrega_estimada < CURRENT_DATE")->fetchColumn();
         $proy_completados_mes = $db->query("SELECT COUNT(*) FROM proyectos WHERE DATE_TRUNC('month',updated_at)=DATE_TRUNC('month',NOW()) AND estado='completado'")->fetchColumn();
 
-        // Ventas
-        $cot_mes    = $db->query("SELECT COUNT(*) FROM cotizaciones WHERE DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW())")->fetchColumn();
-        $ingresos_mes = $db->query("SELECT COALESCE(SUM(total),0) FROM cotizaciones WHERE estado='aprobada' AND DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW())")->fetchColumn();
-        $ingresos_ant = $db->query("SELECT COALESCE(SUM(total),0) FROM cotizaciones WHERE estado='aprobada' AND DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW()-INTERVAL '1 month')")->fetchColumn();
+        // Ventas (ordenes_venta — datos de ventas confirmadas)
+        $cot_mes      = $db->query("SELECT COUNT(*) FROM cotizaciones WHERE DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW())")->fetchColumn();
+        $ingresos_mes = $db->query("SELECT COALESCE(SUM(total),0) FROM ordenes_venta WHERE estado NOT IN ('borrador','cancelada') AND DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW())")->fetchColumn();
+        $ingresos_ant = $db->query("SELECT COALESCE(SUM(total),0) FROM ordenes_venta WHERE estado NOT IN ('borrador','cancelada') AND DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW()-INTERVAL '1 month')")->fetchColumn();
 
         // Compras
         $compras_mes  = $db->query("SELECT COALESCE(SUM(total),0) FROM ordenes_compra WHERE DATE_TRUNC('month',fecha_emision)=DATE_TRUNC('month',NOW())")->fetchColumn();
@@ -46,19 +46,57 @@ try { switch ($action) {
         // Alertas
         $alertas_no_leidas = $db->query("SELECT COUNT(*) FROM alertas WHERE leida=FALSE")->fetchColumn();
 
+        // Datos para gráficos — tendencia 6 meses
+        $stmt = $db->query("
+            SELECT TO_CHAR(DATE_TRUNC('month',fecha_emision),'YYYY-MM') AS mes,
+                   COALESCE(SUM(total),0) AS ingresos
+            FROM ordenes_venta
+            WHERE estado NOT IN ('borrador','cancelada')
+              AND fecha_emision >= NOW() - INTERVAL '6 months'
+            GROUP BY DATE_TRUNC('month',fecha_emision) ORDER BY mes");
+        $ingresos_6meses = $stmt->fetchAll();
+
+        $stmt = $db->query("
+            SELECT TO_CHAR(DATE_TRUNC('month',fecha_emision),'YYYY-MM') AS mes,
+                   COALESCE(SUM(total),0) AS monto
+            FROM ordenes_compra
+            WHERE fecha_emision >= NOW() - INTERVAL '6 months'
+            GROUP BY DATE_TRUNC('month',fecha_emision) ORDER BY mes");
+        $compras_6meses = $stmt->fetchAll();
+
+        $stmt = $db->query("
+            SELECT estado, COUNT(*) AS cnt
+            FROM proyectos WHERE activo GROUP BY estado ORDER BY cnt DESC");
+        $proyectos_estados = $stmt->fetchAll();
+
+        $stmt = $db->query("
+            SELECT p.nombre, p.stock_actual, p.stock_minimo
+            FROM productos p
+            WHERE p.activo AND p.stock_actual<=p.stock_minimo AND p.stock_minimo>0
+            ORDER BY (p.stock_actual::float/NULLIF(p.stock_minimo,0)) ASC LIMIT 5");
+        $stock_critico_detalle = $stmt->fetchAll();
+
+        $alertas_recientes = $db->query("
+            SELECT tipo, mensaje FROM alertas WHERE leida=FALSE ORDER BY created_at DESC LIMIT 4")->fetchAll();
+
         jsonResponse([
-            'ok'                  => true,
-            'proy_activos'        => (int)$proy_activos,
-            'proy_retrasados'     => (int)$proy_retrasados,
-            'proy_completados_mes'=> (int)$proy_completados_mes,
-            'cot_mes'             => (int)$cot_mes,
-            'ingresos_mes'        => (float)$ingresos_mes,
-            'ingresos_ant'        => (float)$ingresos_ant,
-            'compras_mes'         => (float)$compras_mes,
-            'compras_ant'         => (float)$compras_ant,
-            'valor_inv'           => (float)$valor_inv,
-            'stock_critico'       => (int)$stock_critico,
-            'alertas_no_leidas'   => (int)$alertas_no_leidas,
+            'ok'                   => true,
+            'proy_activos'         => (int)$proy_activos,
+            'proy_retrasados'      => (int)$proy_retrasados,
+            'proy_completados_mes' => (int)$proy_completados_mes,
+            'cot_mes'              => (int)$cot_mes,
+            'ingresos_mes'         => (float)$ingresos_mes,
+            'ingresos_ant'         => (float)$ingresos_ant,
+            'compras_mes'          => (float)$compras_mes,
+            'compras_ant'          => (float)$compras_ant,
+            'valor_inv'            => (float)$valor_inv,
+            'stock_critico'        => (int)$stock_critico,
+            'alertas_no_leidas'    => (int)$alertas_no_leidas,
+            'ingresos_6meses'      => $ingresos_6meses,
+            'compras_6meses'       => $compras_6meses,
+            'proyectos_estados'    => $proyectos_estados,
+            'stock_critico_detalle'=> $stock_critico_detalle,
+            'alertas_recientes'    => $alertas_recientes,
         ]);
 
     // ================================================================
@@ -208,7 +246,33 @@ try { switch ($action) {
         $stmt = $db->query("SELECT estado, COUNT(*) AS cnt, COALESCE(SUM(total),0) AS monto FROM cotizaciones GROUP BY estado ORDER BY estado");
         $pipeline = $stmt->fetchAll();
 
-        jsonResponse(['ok' => true, 'por_mes' => $por_mes, 'top_clientes' => $top_clientes, 'pipeline' => $pipeline]);
+        // Órdenes de Venta por mes
+        $stmt = $db->prepare("
+            SELECT TO_CHAR(DATE_TRUNC('month',fecha_emision),'YYYY-MM') AS mes,
+                   COALESCE(SUM(total),0) AS ingresos,
+                   COUNT(*) AS ordenes
+            FROM ordenes_venta
+            WHERE estado NOT IN ('borrador','cancelada')
+              AND fecha_emision BETWEEN :desde AND :hasta
+            GROUP BY DATE_TRUNC('month',fecha_emision) ORDER BY mes");
+        $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);
+        $ov_por_mes = $stmt->fetchAll();
+
+        // Top clientes OV
+        $stmt = $db->prepare("
+            SELECT cl.razon_social, COUNT(ov.id) AS ordenes,
+                   COALESCE(SUM(ov.total),0) AS ingresos
+            FROM ordenes_venta ov
+            JOIN clientes cl ON cl.id = ov.cliente_id
+            WHERE ov.estado NOT IN ('borrador','cancelada')
+              AND ov.fecha_emision BETWEEN :desde AND :hasta
+            GROUP BY cl.id, cl.razon_social
+            ORDER BY ingresos DESC LIMIT 10");
+        $stmt->execute([':desde' => $desde, ':hasta' => $hasta]);
+        $top_clientes_ov = $stmt->fetchAll();
+
+        jsonResponse(['ok' => true, 'por_mes' => $por_mes, 'top_clientes' => $top_clientes, 'pipeline' => $pipeline,
+                      'ov_por_mes' => $ov_por_mes, 'top_clientes_ov' => $top_clientes_ov]);
 
     // ================================================================
     // REPORTE DE COMPRAS
