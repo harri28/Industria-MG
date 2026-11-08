@@ -272,9 +272,6 @@ $page_breadcrumb = $page_breadcrumb ?? '';
     <header class="topbar">
         <div>
             <div class="topbar-title"><?= htmlspecialchars($page_title) ?></div>
-            <?php if ($page_title === 'Dashboard'): ?>
-            <div class="dashboard-notice">Actualizaciones en curso, 57 archivos por completar.</div>
-            <?php endif; ?>
             <?php if ($page_breadcrumb): ?>
             <div class="topbar-breadcrumb"><?= $page_breadcrumb ?></div>
             <?php endif; ?>
