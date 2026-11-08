@@ -84,50 +84,99 @@ details[open] > summary .fa-angle-right { color: var(--primary) !important; }
 
 <!-- MODAL: CATÁLOGO -->
 <div class="modal-overlay" id="modalCatalogo">
-    <div class="modal" style="max-width:760px">
+    <div class="modal" style="max-width:1100px;width:95vw">
         <div class="modal-header">
             <h3 class="modal-title" id="modalCatTitle">Nuevo Producto</h3>
             <button class="modal-close" onclick="Modal.close('modalCatalogo')">×</button>
         </div>
         <div class="modal-body">
             <input type="hidden" id="cat_id">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div class="form-group" style="grid-column:1/3">
-                    <label class="form-label">Nombre *</label>
-                    <input type="text" class="form-control" id="cat_nombre">
+            <style>
+                .cat-rt-toolbar { display:flex;gap:4px;flex-wrap:wrap;padding:6px 8px;background:#f8fafc;border:1px solid var(--border);border-bottom:none;border-radius:6px 6px 0 0 }
+                .cat-rt-toolbar button { padding:4px 9px;font-size:0.78rem;background:#fff;border:1px solid var(--border);border-radius:4px;cursor:pointer;color:#475569 }
+                .cat-rt-toolbar button:hover { background:#f1f5f9;border-color:#94a3b8 }
+                .cat-rt-toolbar select { padding:3px 6px;font-size:0.78rem;border:1px solid var(--border);border-radius:4px;background:#fff;color:#475569 }
+                .cat-rt-editor { min-height:140px;padding:10px 12px;border:1px solid var(--border);border-radius:0 0 6px 6px;background:#fff;font-size:0.9rem;line-height:1.5;color:#1e293b;outline:none;max-height:260px;overflow-y:auto }
+                .cat-rt-editor:focus { border-color:var(--primary);box-shadow:0 0 0 2px rgba(249,115,22,.12) }
+                .cat-rt-editor:empty::before { content:attr(data-placeholder);color:#94a3b8 }
+            </style>
+            <!-- ZONA SUPERIOR: izquierda campos, derecha imagen -->
+            <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:14px 20px;margin-bottom:14px">
+                <!-- Columna izquierda: campos -->
+                <div style="display:flex;flex-direction:column;gap:12px">
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Nombre *</label>
+                        <input type="text" class="form-control" id="cat_nombre" style="max-width:420px">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Categoría</label>
+                            <input type="text" class="form-control" id="cat_cat" list="catCatList" placeholder="Ej: Maquinaria Industrial">
+                            <datalist id="catCatList"></datalist>
+                        </div>
+                        <div class="form-group" style="margin:0">
+                            <label class="form-label">Precio de Venta (S/)</label>
+                            <input type="number" class="form-control" id="cat_precio" min="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Descripción corta</label>
+                        <input type="text" class="form-control" id="cat_dcorta" maxlength="500" placeholder="Máx. 500 caracteres">
+                    </div>
+                    <div class="form-group" style="margin:0">
+                        <label class="form-label">Descripción completa</label>
+                        <div class="cat-rt-toolbar">
+                            <select onchange="catRtExec('fontName', this.value); this.selectedIndex=0" title="Fuente">
+                                <option value="">Fuente</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Verdana">Verdana</option>
+                            </select>
+                            <select onchange="catRtExec('fontSize', this.value); this.selectedIndex=0" title="Tamaño">
+                                <option value="">Tamaño</option>
+                                <option value="2">Pequeño</option>
+                                <option value="3">Normal</option>
+                                <option value="5">Grande</option>
+                                <option value="6">Muy grande</option>
+                            </select>
+                            <button type="button" onclick="catRtExec('bold')" title="Negrita"><b>N</b></button>
+                            <button type="button" onclick="catRtExec('italic')" title="Cursiva"><i>C</i></button>
+                            <button type="button" onclick="catRtExec('underline')" title="Subrayado"><u>S</u></button>
+                            <button type="button" onclick="catRtExec('insertUnorderedList')" title="Lista"><i class="fa fa-list-ul"></i></button>
+                            <button type="button" onclick="catRtExec('removeFormat')" title="Quitar formato"><i class="fa fa-eraser"></i></button>
+                        </div>
+                        <div id="cat_desc" class="cat-rt-editor" contenteditable="true" data-placeholder="Escribe aquí la descripción completa..."></div>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Categoría</label>
-                    <input type="text" class="form-control" id="cat_cat" list="catCatList" placeholder="Ej: Maquinaria Industrial">
-                    <datalist id="catCatList"></datalist>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Precio Referencial (S/)</label>
-                    <input type="number" class="form-control" id="cat_precio" min="0" step="0.01">
-                </div>
-                <div class="form-group" style="grid-column:1/3">
-                    <label class="form-label">Descripción corta</label>
-                    <input type="text" class="form-control" id="cat_dcorta" maxlength="500" placeholder="Máx. 500 caracteres">
-                </div>
-                <div class="form-group" style="grid-column:1/3">
-                    <label class="form-label">Descripción completa</label>
-                    <textarea class="form-control" id="cat_desc" rows="4"></textarea>
-                </div>
-                <div class="form-group" style="grid-column:1/3">
+                <!-- Columna derecha: imagen -->
+                <div class="form-group" style="margin:0;display:flex;flex-direction:column">
                     <label class="form-label">Imagen del producto</label>
-                    <div id="catImgZone" style="width:100%;height:100px;border:2px dashed #cbd5e1;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#f8fafc;cursor:pointer;overflow:hidden;position:relative" onclick="document.getElementById('catImgInput').click()">
-                        <img id="catImgPreview" style="display:none;max-width:100%;max-height:100px;object-fit:contain">
-                        <div id="catImgPlaceholder" style="text-align:center;color:#94a3b8;pointer-events:none">
-                            <i class="fa fa-image" style="font-size:2rem;margin-bottom:6px;display:block"></i>
-                            <span style="font-size:0.82rem">Clic para subir imagen (JPG, PNG, WebP · máx 5MB)</span>
+                    <div id="catImgZone" style="flex:1;min-height:280px;border:2px dashed #cbd5e1;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#f8fafc;cursor:pointer;overflow:hidden;position:relative" onclick="document.getElementById('catImgInput').click()">
+                        <img id="catImgPreview" style="display:none;max-width:100%;max-height:100%;object-fit:contain">
+                        <div id="catImgPlaceholder" style="text-align:center;color:#94a3b8;pointer-events:none;padding:12px">
+                            <i class="fa fa-image" style="font-size:2.2rem;margin-bottom:8px;display:block"></i>
+                            <span style="font-size:0.82rem">Clic para subir imagen<br>(JPG, PNG, WebP · máx 5MB)</span>
                         </div>
                     </div>
                     <input type="file" id="catImgInput" accept=".jpg,.jpeg,.png,.webp" style="display:none" onchange="catImgChange(this)">
-                    <button type="button" id="catImgQuit" onclick="catImgClear()" class="btn btn-secondary" style="display:none;margin-top:6px;font-size:0.78rem;padding:3px 10px">
+                    <button type="button" id="catImgQuit" onclick="catImgClear()" class="btn btn-secondary" style="display:none;margin-top:6px;font-size:0.76rem;padding:3px 10px;align-self:flex-start">
                         <i class="fa fa-times"></i> Quitar imagen
                     </button>
                 </div>
-                <div class="form-group" style="grid-column:1/3">
+            </div>
+            <!-- ZONA INFERIOR: checkboxes y bloques anchos -->
+            <div style="display:flex;flex-direction:column;gap:14px">
+                <div style="display:flex;gap:24px;align-items:center;border-top:1px solid var(--border);padding-top:12px">
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                        <input type="checkbox" id="cat_publicado"> Publicado
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                        <input type="checkbox" id="cat_destacado"> Destacado
+                    </label>
+                </div>
+                <div class="form-group" style="margin:0;border-top:1px solid var(--border);padding-top:12px">
                     <label class="form-label">Colores disponibles</label>
                     <div style="font-size:0.75rem;color:#94a3b8;margin-bottom:6px">Cada color con su imagen. Se usa al registrar una maquinaria.</div>
                     <div id="catColoresList"></div>
@@ -136,7 +185,7 @@ details[open] > summary .fa-angle-right { color: var(--primary) !important; }
                     </button>
                 </div>
                 <!-- ESPECIFICACIONES TÉCNICAS -->
-                <div class="form-group" style="grid-column:1/3;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+                <div class="form-group" style="margin:0;border-top:1px solid var(--border);padding-top:12px">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                         <label class="form-label" style="margin:0">Especificaciones Técnicas <span style="font-size:0.75rem;color:#94a3b8;font-weight:400">(opcional)</span></label>
                         <div style="display:flex;gap:6px">
@@ -155,24 +204,71 @@ details[open] > summary .fa-angle-right { color: var(--primary) !important; }
                         </button>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Orden de aparición</label>
-                    <input type="number" class="form-control" id="cat_orden" min="0" value="0">
-                </div>
-                <div class="form-group" style="display:flex;gap:20px;align-items:flex-end">
-                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                        <input type="checkbox" id="cat_publicado"> Publicado
-                    </label>
-                    <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
-                        <input type="checkbox" id="cat_destacado"> Destacado
-                    </label>
-                </div>
             </div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="Modal.close('modalCatalogo')">Cancelar</button>
-            <button class="btn btn-primary" onclick="guardarCatalogo()">Guardar</button>
+        <div class="modal-footer" style="display:flex;justify-content:space-between;gap:10px">
+            <button class="btn btn-secondary" id="btnDesactivarCatalogo" onclick="desactivarCatalogo()" style="display:none;color:var(--danger);border-color:var(--danger)">
+                <i class="fa fa-ban"></i> Desactivar
+            </button>
+            <div style="display:flex;gap:10px;margin-left:auto">
+                <button class="btn btn-secondary" onclick="Modal.close('modalCatalogo')">Cancelar</button>
+                <button class="btn btn-primary" onclick="guardarCatalogo()">Guardar</button>
+            </div>
         </div>
+    </div>
+</div>
+
+<!-- MODAL: CATÁLOGO DETALLE (A4) -->
+<div class="modal-overlay" id="modalCatalogoDetalle">
+    <style>
+        .cat-a4-wrap { background:#eef2f7;padding:20px;max-height:85vh;overflow-y:auto }
+        .cat-a4-page { width:210mm;min-height:297mm;background:#fff;margin:0 auto 20px;padding:18mm 20mm;box-shadow:0 2px 12px rgba(15,23,42,.12);box-sizing:border-box;font-family:Arial,sans-serif;color:#1e293b;position:relative }
+        .cat-a4-page + .cat-a4-page { margin-top:0 }
+        .cat-a4-header { display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid var(--primary);padding-bottom:10px;margin-bottom:18px }
+        .cat-a4-head-left img { max-height:48px;max-width:160px;object-fit:contain }
+        .cat-a4-head-left .emp-name { font-size:11px;font-weight:700;color:#334155;margin-top:4px }
+        .cat-a4-head-left .emp-sub { font-size:9.5px;color:#64748b }
+        .cat-a4-head-right { border:2px solid var(--primary);border-radius:6px;padding:8px 16px;text-align:center;min-width:130px }
+        .cat-a4-head-right .label { font-size:9px;text-transform:uppercase;letter-spacing:1px;color:#64748b }
+        .cat-a4-head-right .num { font-size:16px;font-weight:900;color:var(--primary);word-break:break-word }
+        .cat-a4-img { width:100%;max-height:340px;object-fit:contain;background:#f8fafc;border:1px solid var(--border);border-radius:6px;margin-bottom:16px }
+        .cat-a4-name { font-size:22px;font-weight:900;color:#0f172a;margin-bottom:4px }
+        .cat-a4-cat { font-size:12px;color:#64748b;margin-bottom:8px }
+        .cat-a4-badges { display:flex;gap:6px;margin-bottom:12px }
+        .cat-a4-badge { display:inline-block;padding:3px 10px;font-size:10px;font-weight:700;border-radius:12px;text-transform:uppercase;letter-spacing:.3px }
+        .cat-a4-badge.pub { background:#dcfce7;color:#16a34a }
+        .cat-a4-badge.bor { background:#f1f5f9;color:#64748b }
+        .cat-a4-badge.des { background:#fef3c7;color:#b45309 }
+        .cat-a4-precio { display:inline-block;background:#fff7ed;border:1.5px solid var(--primary);border-radius:6px;padding:8px 18px;font-size:18px;font-weight:900;color:var(--primary);margin-bottom:16px }
+        .cat-a4-section { margin-bottom:16px }
+        .cat-a4-section-title { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:8px }
+        .cat-a4-dcorta { font-size:12px;color:#475569;line-height:1.5;font-style:italic;background:#f8fafc;padding:8px 12px;border-left:3px solid var(--primary);border-radius:0 4px 4px 0 }
+        .cat-a4-dfull { font-size:12px;color:#1e293b;line-height:1.55 }
+        .cat-a4-dfull p { margin:0 0 8px }
+        .cat-a4-colores { display:flex;flex-wrap:wrap;gap:8px }
+        .cat-a4-color { display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid var(--border);border-radius:16px;padding:4px 12px;font-size:11px;color:#475569 }
+        .cat-a4-color img { width:18px;height:18px;border-radius:50%;object-fit:cover }
+        .cat-a4-color .dot { width:12px;height:12px;border-radius:50%;background:#cbd5e1 }
+        .cat-a4-specs-group { margin-bottom:10px }
+        .cat-a4-specs-title { font-size:12px;font-weight:700;color:#0f172a;background:#fff7ed;padding:6px 10px;border-radius:4px;margin-bottom:4px }
+        .cat-a4-specs-desc { font-size:10.5px;color:#64748b;font-style:italic;margin-bottom:4px;padding:0 10px }
+        .cat-a4-specs-table { width:100%;border-collapse:collapse;font-size:11px }
+        .cat-a4-specs-table td { padding:4px 10px;border-bottom:1px solid #f1f5f9;vertical-align:top }
+        .cat-a4-specs-table td.k { color:#475569;font-weight:500;width:45% }
+        .cat-a4-specs-table td.v { color:#0f172a;font-weight:600 }
+        .cat-a4-specs-table td.v .unit { font-weight:400;color:#64748b;margin-left:3px }
+        .cat-a4-footer { position:absolute;bottom:10mm;left:20mm;right:20mm;display:flex;justify-content:space-between;font-size:9px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:6px }
+    </style>
+    <div class="modal" style="max-width:880px;width:95vw;padding:0">
+        <div class="modal-header" style="position:sticky;top:0;background:#fff;z-index:2">
+            <h3 class="modal-title">Ficha del Producto</h3>
+            <div style="display:flex;gap:8px;margin-left:auto">
+                <button class="btn btn-secondary btn-sm" onclick="imprimirCatalogoDetalle()" title="Imprimir / PDF"><i class="fa fa-print"></i> Imprimir</button>
+                <button class="btn btn-primary btn-sm" onclick="editarDesdeDetalle()" title="Editar"><i class="fa fa-edit"></i> Editar</button>
+                <button class="modal-close" onclick="Modal.close('modalCatalogoDetalle')">×</button>
+            </div>
+        </div>
+        <div class="cat-a4-wrap" id="catA4Wrap"></div>
     </div>
 </div>
 
@@ -481,8 +577,8 @@ async function cargarCatalogo() {
             </div>` : '';
 
         return `
-        <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;cursor:pointer" onclick="editarCatalogo(${p.id})">
-            ${p.imagen_principal ? `<div style="height:160px;overflow:hidden;background:#f1f5f9;flex:0 0 auto"><img src="${CAT_IMG_BASE}${p.imagen_principal}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>` : ''}
+        <div class="card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;cursor:pointer;transition:transform .15s,box-shadow .15s" onclick="verCatalogo(${p.id})" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 18px rgba(15,23,42,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+            ${p.imagen_principal ? `<div style="height:200px;overflow:hidden;background:#f8fafc;flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:8px"><img src="${CAT_IMG_BASE}${p.imagen_principal}" style="max-width:100%;max-height:100%;object-fit:contain" loading="lazy"></div>` : ''}
             <div style="background:${p.publicado?'#f0fdf4':'#f8fafc'};padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);flex:0 0 auto">
                 <span class="badge ${p.publicado?'badge-success':'badge-secondary'}">${p.publicado?'Publicado':'Borrador'}</span>
                 ${p.destacado ? '<span class="badge badge-warning"><i class="fa fa-star"></i> Destacado</span>' : ''}
@@ -495,14 +591,6 @@ async function cargarCatalogo() {
             </div>
             ${coloresHtml}
             ${fichaHtml}
-            <div style="padding:8px 12px;border-top:1px solid var(--border);display:flex;gap:6px;flex:0 0 auto" onclick="event.stopPropagation()">
-                <button class="btn btn-secondary" style="flex:1;padding:4px;font-size:0.78rem" onclick="editarCatalogo(${p.id})">
-                    <i class="fa fa-edit"></i> Editar
-                </button>
-                <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.78rem;color:var(--danger)" onclick="eliminarCatalogo(${p.id})">
-                    <i class="fa fa-trash"></i>
-                </button>
-            </div>
         </div>`;
     }).join('');
 }
@@ -513,11 +601,11 @@ function abrirModalCatalogo() {
     document.getElementById('cat_cat').value = '';
     document.getElementById('cat_precio').value = '';
     document.getElementById('cat_dcorta').value = '';
-    document.getElementById('cat_desc').value = '';
-    document.getElementById('cat_orden').value = '0';
+    document.getElementById('cat_desc').innerHTML = '';
     document.getElementById('cat_publicado').checked = false;
     document.getElementById('cat_destacado').checked = false;
     document.getElementById('modalCatTitle').textContent = 'Nuevo Producto';
+    document.getElementById('btnDesactivarCatalogo').style.display = 'none';
     catImgReset();
     catColoresReset([]);
     catSpecsReset([]);
@@ -537,11 +625,11 @@ async function editarCatalogo(id) {
     document.getElementById('cat_cat').value = p.categoria || '';
     document.getElementById('cat_precio').value = p.precio_referencial || '';
     document.getElementById('cat_dcorta').value = p.descripcion_corta || '';
-    document.getElementById('cat_desc').value = p.descripcion || '';
-    document.getElementById('cat_orden').value = p.orden || 0;
+    document.getElementById('cat_desc').innerHTML = p.descripcion || '';
     document.getElementById('cat_publicado').checked = p.publicado;
     document.getElementById('cat_destacado').checked = p.destacado;
     document.getElementById('modalCatTitle').textContent = 'Editar Producto';
+    document.getElementById('btnDesactivarCatalogo').style.display = '';
     catImgState = { existingFilename: p.imagen_principal || null, file: null, removed: false };
     if (p.imagen_principal) catImgSetPreview(CAT_IMG_BASE + p.imagen_principal);
     else catImgReset();
@@ -583,8 +671,7 @@ async function guardarCatalogo() {
         categoria:           document.getElementById('cat_cat').value,
         precio_referencial:  document.getElementById('cat_precio').value || null,
         descripcion_corta:   document.getElementById('cat_dcorta').value,
-        descripcion:         document.getElementById('cat_desc').value,
-        orden:               document.getElementById('cat_orden').value,
+        descripcion:         document.getElementById('cat_desc').innerHTML.trim(),
         publicado:           document.getElementById('cat_publicado').checked,
         destacado:           document.getElementById('cat_destacado').checked,
         colores,
@@ -612,12 +699,171 @@ async function togglePublicado(id) {
     if (r.ok) { cargarCatalogo(); }
 }
 
-function eliminarCatalogo(id) {
-    confirmar('¿Eliminar este producto del catálogo? Esta acción no se puede deshacer.', 'Eliminar', async () => {
-        const r = await apiPost('api.php', { action: 'catalogo_eliminar', id });
-        if (r.ok) { Toast.success('Eliminado'); cargarCatalogo(); }
-        else Toast.error(r.error || 'Error');
+function desactivarCatalogo() {
+    const id = document.getElementById('cat_id').value;
+    if (!id) return;
+    confirmar('¿Desactivar este producto? Dejará de aparecer en el catálogo.', 'Desactivar', async () => {
+        const r = await apiPost('api.php', { action: 'catalogo_desactivar', id });
+        if (r.ok) {
+            Toast.success('Producto desactivado');
+            Modal.close('modalCatalogo');
+            cargarCatalogo();
+        } else {
+            Toast.error(r.error || 'Error');
+        }
     });
+}
+
+// VISTA DETALLE A4
+let catDetalleActual = null;
+
+async function verCatalogo(id) {
+    const d = await apiGet(`api.php?action=catalogo_obtener&id=${id}`);
+    if (!d.ok) return;
+    catDetalleActual = d.producto;
+    renderCatalogoA4(d.producto);
+    Modal.open('modalCatalogoDetalle');
+}
+
+function renderCatalogoA4(p) {
+    let colores = p.colores || [];
+    if (typeof colores === 'string') { try { colores = JSON.parse(colores) || []; } catch(e) { colores = []; } }
+    colores = colores.filter(c => c.nombre);
+
+    let specs = p.especificaciones || [];
+    if (typeof specs === 'string') { try { specs = JSON.parse(specs) || []; } catch(e) { specs = []; } }
+    specs = specs.filter(g => g.titulo);
+
+    const correlativo = 'CAT' + String(p.id).padStart(3, '0');
+    const hoy = new Date().toLocaleDateString('es-PE');
+
+    const html = `
+    <div class="cat-a4-page">
+        <div class="cat-a4-header">
+            <div class="cat-a4-head-left">
+                <img src="../../assets/iconos/logo.jpeg" alt="Logo">
+                <div class="emp-name">INDUSTRIA MG</div>
+                <div class="emp-sub">Ficha técnica del producto</div>
+            </div>
+            <div class="cat-a4-head-right">
+                <div class="label">Código</div>
+                <div class="num">${correlativo}</div>
+                <div style="font-size:9px;color:#64748b;margin-top:4px">${hoy}</div>
+            </div>
+        </div>
+
+        ${p.imagen_principal
+            ? `<img src="${CAT_IMG_BASE}${p.imagen_principal}" class="cat-a4-img" alt="Producto">`
+            : '<div class="cat-a4-img" style="display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:12px;height:180px">Sin imagen</div>'
+        }
+
+        <div class="cat-a4-name">${esc(p.nombre)}</div>
+        ${p.categoria ? `<div class="cat-a4-cat">${esc(p.categoria)}</div>` : ''}
+        <div class="cat-a4-badges">
+            <span class="cat-a4-badge ${p.publicado?'pub':'bor'}">${p.publicado?'Publicado':'Borrador'}</span>
+            ${p.destacado ? '<span class="cat-a4-badge des">★ Destacado</span>' : ''}
+        </div>
+        ${p.precio_referencial ? `<div class="cat-a4-precio">${formatMoney(p.precio_referencial)}</div>` : ''}
+
+        ${p.descripcion_corta ? `
+        <div class="cat-a4-section">
+            <div class="cat-a4-section-title">Resumen</div>
+            <div class="cat-a4-dcorta">${esc(p.descripcion_corta)}</div>
+        </div>` : ''}
+
+        ${p.descripcion ? `
+        <div class="cat-a4-section">
+            <div class="cat-a4-section-title">Descripción</div>
+            <div class="cat-a4-dfull">${p.descripcion}</div>
+        </div>` : ''}
+
+        ${colores.length ? `
+        <div class="cat-a4-section">
+            <div class="cat-a4-section-title">Colores disponibles</div>
+            <div class="cat-a4-colores">
+                ${colores.map(c => `
+                <div class="cat-a4-color">
+                    ${c.imagen ? `<img src="${CAT_IMG_BASE}${c.imagen}">` : '<span class="dot"></span>'}
+                    ${esc(c.nombre)}
+                </div>`).join('')}
+            </div>
+        </div>` : ''}
+
+        ${specs.length ? `
+        <div class="cat-a4-section">
+            <div class="cat-a4-section-title">Especificaciones técnicas</div>
+            ${specs.map(g => `
+                <div class="cat-a4-specs-group">
+                    <div class="cat-a4-specs-title">${esc(g.titulo)}</div>
+                    ${g.descripcion ? `<div class="cat-a4-specs-desc">${esc(g.descripcion)}</div>` : ''}
+                    ${(g.params||[]).length ? `
+                    <table class="cat-a4-specs-table">
+                        ${(g.params||[]).map(p2 => `
+                        <tr>
+                            <td class="k">${esc(p2.nombre)}</td>
+                            <td class="v">
+                                ${esc(p2.valor)}${p2.unidad ? `<span class="unit">${esc(p2.unidad)}</span>` : ''}
+                                ${p2.descripcion ? `<div style="font-size:9.5px;color:#94a3b8;font-weight:400;margin-top:2px">${esc(p2.descripcion)}</div>` : ''}
+                            </td>
+                        </tr>`).join('')}
+                    </table>` : ''}
+                </div>
+            `).join('')}
+        </div>` : ''}
+    </div>`;
+
+    document.getElementById('catA4Wrap').innerHTML = html;
+}
+
+function editarDesdeDetalle() {
+    if (!catDetalleActual) return;
+    const id = catDetalleActual.id;
+    Modal.close('modalCatalogoDetalle');
+    setTimeout(() => editarCatalogo(id), 150);
+}
+
+async function imprimirCatalogoDetalle() {
+    if (!catDetalleActual) return;
+    const content = document.getElementById('catA4Wrap').innerHTML;
+    const styles = document.querySelector('#modalCatalogoDetalle style').textContent;
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>Ficha - ${esc(catDetalleActual.nombre || 'Producto')}</title>
+<style>
+:root { --primary:#f97316; --border:#e2e8f0; --danger:#ef4444 }
+* { box-sizing:border-box }
+body { margin:0; background:#fff; font-family:Arial,sans-serif }
+${styles}
+/* Vista en el modal del navegador (pre-print) */
+.cat-a4-wrap { padding:0; background:#fff; max-height:none; overflow:visible }
+.cat-a4-page { box-shadow:none !important; margin:0 auto !important; padding:0 !important; width:100%; min-height:0 }
+
+/* Evita que un bloque se corte en medio de una página */
+.cat-a4-specs-group, .cat-a4-section, .cat-a4-header, .cat-a4-img { page-break-inside:avoid; break-inside:avoid }
+.cat-a4-specs-title { page-break-after:avoid; break-after:avoid }
+
+@media print {
+    /* Márgenes físicos de cada hoja A4 (se aplican en TODAS las páginas) */
+    @page {
+        size:A4;
+        margin:18mm 16mm;
+        @top-left { content:"" }
+        @top-center { content:"" }
+        @top-right { content:"" }
+        @bottom-left { content:"" }
+        @bottom-center { content:"" }
+        @bottom-right { content:"" }
+    }
+    body, html { margin:0; padding:0; background:#fff }
+    .cat-a4-wrap { padding:0 }
+    .cat-a4-page { width:auto; min-height:0; margin:0 !important; padding:0 !important; box-shadow:none !important }
+}
+</style></head><body>
+<div class="cat-a4-wrap">${content}</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>
+</body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    w.document.write(html);
+    w.document.close();
 }
 
 // LEADS
@@ -854,6 +1100,11 @@ function catImgClear() {
     document.getElementById('catImgPlaceholder').style.display = '';
     document.getElementById('catImgQuit').style.display = 'none';
     document.getElementById('catImgInput').value = '';
+}
+function catRtExec(cmd, val) {
+    const editor = document.getElementById('cat_desc');
+    editor.focus();
+    document.execCommand(cmd, false, val || null);
 }
 function catImgReset() {
     catImgState = { existingFilename: null, file: null, removed: false };

@@ -23,7 +23,7 @@ try { switch ($action) {
     // CATÁLOGO
     // ================================================================
     case 'catalogo_listar':
-        $where  = ['1=1'];
+        $where  = ['activo = TRUE'];
         $params = [];
         if (!empty($input['q'])) {
             $where[] = "(nombre ILIKE :q OR descripcion_corta ILIKE :q OR categoria ILIKE :q)";
@@ -154,7 +154,8 @@ try { switch ($action) {
         jsonResponse(['ok' => true]);
 
     case 'catalogo_eliminar':
-        $db->prepare("DELETE FROM catalogo_productos WHERE id=:id")->execute([':id' => (int)($input['id'] ?? 0)]);
+    case 'catalogo_desactivar':
+        $db->prepare("UPDATE catalogo_productos SET activo = FALSE WHERE id=:id")->execute([':id' => (int)($input['id'] ?? 0)]);
         jsonResponse(['ok' => true]);
 
     case 'categorias_catalogo':
