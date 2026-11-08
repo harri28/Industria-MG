@@ -162,6 +162,11 @@ try { switch ($action) {
         $stmt = $db->query("SELECT DISTINCT categoria FROM catalogo_productos WHERE categoria IS NOT NULL ORDER BY categoria");
         jsonResponse(['ok' => true, 'categorias' => array_column($stmt->fetchAll(), 'categoria')]);
 
+    case 'categorias_inventario':
+        // Lista las categorías activas del módulo Inventario (categorias_producto) para usar en el catálogo
+        $stmt = $db->query("SELECT id, nombre FROM categorias_producto WHERE activo = TRUE ORDER BY nombre");
+        jsonResponse(['ok' => true, 'categorias' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+
     case 'catalogo_img_guardar':
         $id = (int)($_POST['id'] ?? 0);
         if (!$id) jsonResponse(['error' => 'ID requerido.'], 400);

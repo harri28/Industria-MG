@@ -111,8 +111,9 @@ details[open] > summary .fa-angle-right { color: var(--primary) !important; }
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Categoría</label>
-                            <input type="text" class="form-control" id="cat_cat" list="catCatList" placeholder="Ej: Maquinaria Industrial">
-                            <datalist id="catCatList"></datalist>
+                            <select class="form-control" id="cat_cat">
+                                <option value="">— Sin categoría —</option>
+                            </select>
                         </div>
                         <div class="form-group" style="margin:0">
                             <label class="form-label">Precio de Venta (S/)</label>
@@ -482,6 +483,7 @@ let leadUsuarios = [];
 document.addEventListener('DOMContentLoaded', () => {
     initTabs('mainTabs');
     cargarUsuariosLead();
+    cargarCategoriasInventario();
     cargarCategoriasCatalogo().then(() => {
         cargarCatalogo();
         cargarLeads();
@@ -505,7 +507,17 @@ async function cargarCategoriasCatalogo() {
     catCategorias = d.categorias;
     const opts = '<option value="">Todas las categorías</option>' + d.categorias.map(c => `<option value="${c}">${c}</option>`).join('');
     document.getElementById('catCategoria').innerHTML = opts;
-    document.getElementById('catCatList').innerHTML = d.categorias.map(c => `<option value="${c}">`).join('');
+}
+
+async function cargarCategoriasInventario() {
+    // Carga las categorías del módulo Inventario (categorias_producto) para el select del formulario
+    const d = await apiGet('api.php?action=categorias_inventario');
+    if (!d.ok) return;
+    const sel = document.getElementById('cat_cat');
+    const valorActual = sel.value;
+    sel.innerHTML = '<option value="">— Sin categoría —</option>' +
+        (d.categorias || []).map(c => `<option value="${esc(c.nombre)}">${esc(c.nombre)}</option>`).join('');
+    if (valorActual) sel.value = valorActual;
 }
 
 async function cargarCatalogo() {
@@ -622,7 +634,13 @@ async function editarCatalogo(id) {
     const p = d.producto;
     document.getElementById('cat_id').value = p.id;
     document.getElementById('cat_nombre').value = p.nombre;
-    document.getElementById('cat_cat').value = p.categoria || '';
+    // Si la categoría guardada no coincide con ninguna del inventario, se agrega como opción marcada
+    const catSel = document.getElementById('cat_cat');
+    const catVal = p.categoria || '';
+    if (catVal && !Array.from(catSel.options).some(o => o.value === catVal)) {
+        catSel.insertAdjacentHTML('beforeend', `<option value="${esc(catVal)}">${esc(catVal)} (no listada)</option>`);
+    }
+    catSel.value = catVal;
     document.getElementById('cat_precio').value = p.precio_referencial || '';
     document.getElementById('cat_dcorta').value = p.descripcion_corta || '';
     document.getElementById('cat_desc').innerHTML = p.descripcion || '';
@@ -1229,7 +1247,7 @@ function catSpecsRender() {
                             <th style="padding:5px 7px;border:1px solid #cbd5e1;width:28px"></th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody data-gi="${gi}">
                         ${g.params.length === 0
                             ? `<tr><td colspan="5" style="padding:8px;color:#94a3b8;text-align:center;border:1px solid #cbd5e1;font-style:italic">Sin parámetros</td></tr>`
                             : g.params.map((p, pi) => `
@@ -1291,12 +1309,17 @@ function catSpecGrupoQuitar(gi) {
 function catSpecParamAgregar(gi) {
     catSpecs[gi].params.push({ nombre: '', valor: '', unidad: '', descripcion: '' });
     catSpecsRender();
-    // Enfocar el nombre del nuevo parámetro
+    // Enfocar el nombre del nuevo parámetro DEL GRUPO AL QUE SE AGREGÓ (no al final del modal)
     setTimeout(() => {
-        const rows = document.querySelectorAll(`#catSpecsList tbody tr`);
-        if (rows.length) {
-            const inp = rows[rows.length - 1].querySelector('input');
-            if (inp) inp.focus();
+        const tbody = document.querySelector(`#catSpecsList tbody[data-gi="${gi}"]`);
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr');
+        if (!rows.length) return;
+        const inp = rows[rows.length - 1].querySelector('input');
+        if (inp) {
+            // scroll suave al nuevo input dentro del modal, no al final
+            inp.focus({ preventScroll: true });
+            inp.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     }, 50);
 }
