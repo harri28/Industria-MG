@@ -40,9 +40,9 @@ require_once __DIR__ . '/../../includes/header.php';
             <table id="tablaReporte">
                 <thead><tr>
                     <th>Fecha</th><th>Cliente</th><th>Comprobante</th><th class="text-right">Total</th>
-                    <th>XML</th><th>CDR</th><th>SUNAT</th><th>Estado</th>
+                    <th>XML</th><th>CDR</th><th>SUNAT</th><th>Estado</th><th>Acciones</th>
                 </tr></thead>
-                <tbody><tr><td colspan="8" class="text-center text-muted" style="padding:20px">Elige un rango y pulsa Buscar</td></tr></tbody>
+                <tbody><tr><td colspan="9" class="text-center text-muted" style="padding:20px">Elige un rango y pulsa Buscar</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -230,6 +230,14 @@ function archivoLink(path, icon, titulo) {
     if (!path) return '<span class="text-muted">—</span>';
     return `<a href="/industria_mg/${path}" target="_blank" title="${titulo}"><i class="fa ${icon}"></i></a>`;
 }
+function xmlLinkDescarga(path) {
+    if (!path) return '<span class="text-muted">—</span>';
+    return `<a href="/industria_mg/${path}" target="_blank" download title="Descargar XML / Respuesta SUNAT" style="color:var(--primary);font-size:1.05rem"><i class="fa fa-file-code"></i></a>`;
+}
+function cdrLinkVer(path) {
+    if (!path) return '<span class="text-muted">—</span>';
+    return `<a href="/industria_mg/${path}" target="_blank" title="Ver CDR en nueva pestaña" style="color:var(--primary);font-size:1.05rem"><i class="fa fa-file-circle-check"></i></a>`;
+}
 function badgeSunat(c) {
     const cod = (c.codigo_respuesta || '').trim();
     const estado = (c.estado || '').toLowerCase();
@@ -256,16 +264,104 @@ async function cargarReporte() {
     const rows = d.comprobantes || [];
     document.getElementById('repCount').textContent = `(${rows.length} resultados)`;
     const tb = document.querySelector('#tablaReporte tbody');
-    tb.innerHTML = rows.length ? rows.map(c => `<tr>
+    tb.innerHTML = rows.length ? rows.map(c => {
+        const puedeReenviar = !c.cdr_path && !c.anulado;
+        return `<tr>
         <td style="white-space:nowrap">${formatDate(c.fecha_emision)}<div class="text-xs text-muted">${(c.hora_emision||'').slice(0,5)}</div></td>
         <td>${esc(c.cliente_nombre)}<div class="text-xs text-muted">${esc(c.cliente_doc)}</div></td>
         <td><strong>${esc(c.numero)}</strong><div class="text-xs text-muted">${tipoDocLabel(c.codigo_tipo_documento)}</div></td>
         <td class="text-right">${formatMoney(c.total)}</td>
-        <td class="text-center">${archivoLink(c.xml_path,'fa-file-code','Descargar XML')}</td>
-        <td class="text-center">${archivoLink(c.cdr_path,'fa-file-circle-check','Descargar CDR')}</td>
+        <td>${xmlLinkDescarga(c.xml_path)}</td>
+        <td>${cdrLinkVer(c.cdr_path)}</td>
         <td>${badgeSunat(c)}</td>
         <td>${c.anulado ? '<span class="badge badge-cancelado">Anulado</span>' : '<span class="badge badge-completado">Vigente</span>'}</td>
-    </tr>`).join('') : '<tr><td colspan="8" class="text-center text-muted" style="padding:20px">Sin comprobantes en el rango</td></tr>';
+        <td style="white-space:nowrap">
+            <button class="btn btn-outline btn-xs" title="Imprimir" onclick="imprimirComprobanteFact(${c.id})"><i class="fa fa-print"></i></button>
+            ${puedeReenviar
+                ? `<button class="btn btn-outline btn-xs" title="Reenviar a SUNAT" onclick="reenviarComprobante(${c.id},this)"><i class="fa fa-paper-plane"></i></button>`
+                : ''}
+        </td>
+    </tr>`;
+    }).join('') : '<tr><td colspan="9" class="text-center text-muted" style="padding:20px">Sin comprobantes en el rango</td></tr>';
+}
+
+async function imprimirComprobanteFact(id) {
+    try {
+        const d = await apiGet(`${BASE}?action=fact_comprobante_detalle&id=${id}`);
+        if (!d.ok) { Toast.error('No se pudo cargar el comprobante.'); return; }
+        const c = d.comprobante || {};
+        const items = d.items || [];
+        const emp = d.empresa || {};
+        const logo = emp.logo
+            ? `<img src="${emp.logo}" style="max-height:72px;max-width:220px;object-fit:contain">`
+            : `<div style="font-size:18px;font-weight:900;color:#f97316">${esc(emp.nombre || 'IndustriaMG')}</div>`;
+        const itemsHtml = items.map((it, i) => `
+            <tr>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee">${i+1}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee">${esc(it.descripcion)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:center">${esc(it.unidad_codigo || 'NIU')}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${parseFloat(it.cantidad||0).toFixed(2)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right">${formatMoney(it.precio_unitario||0)}</td>
+                <td style="padding:6px 8px;border-bottom:1px solid #eee;text-align:right"><strong>${formatMoney(it.total||0)}</strong></td>
+            </tr>`).join('');
+        const tipoLabel = tipoDocLabel(c.codigo_tipo_documento) || 'Comprobante';
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(c.numero)}</title>
+<style>
+*{box-sizing:border-box} body{font-family:Arial,sans-serif;font-size:12px;max-width:794px;margin:0 auto;padding:24px;color:#111}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+.doc-box{border:2.5px solid #f97316;border-radius:8px;padding:10px 18px;text-align:center;min-width:220px}
+.doc-box .lbl{font-size:10px;font-weight:700;color:#f97316;text-transform:uppercase;letter-spacing:.6px}
+.doc-box .num{font-size:18px;font-weight:900;color:#f97316;margin-top:4px}
+.section{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:14px}
+.tot-row{display:flex;justify-content:space-between;padding:4px 0}
+.tot-row.total{border-top:2px solid #f97316;font-weight:900;font-size:14px;color:#f97316;padding-top:8px;margin-top:4px}
+table.items{width:100%;border-collapse:collapse;margin-bottom:10px}
+table.items th{background:#f1f5f9;padding:7px 8px;font-size:11px;text-align:left}
+@media print{ @page{size:A4;margin:15mm} body{padding:0;margin:0} }
+</style></head><body>
+<div class="hdr">
+    <div>
+        ${logo}
+        <div style="margin-top:6px;font-weight:700">${esc(emp.razon_social || '')}</div>
+        ${emp.ruc?`<div style="font-size:11px;color:#64748b">RUC: ${esc(emp.ruc)}</div>`:''}
+        ${emp.direccion?`<div style="font-size:11px;color:#64748b">${esc(emp.direccion)}</div>`:''}
+    </div>
+    <div class="doc-box">
+        <div class="lbl">${esc(tipoLabel).toUpperCase()}</div>
+        <div class="num">${esc(c.numero)}</div>
+        <div style="font-size:10px;color:#64748b;margin-top:4px">${formatDate(c.fecha_emision)} ${(c.hora_emision||'').slice(0,5)}</div>
+    </div>
+</div>
+<div class="section">
+    <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px">Cliente</div>
+    <div style="font-weight:700">${esc(c.cliente_nombre || 'Sin cliente')}</div>
+    <div style="font-size:11px;color:#64748b">${esc(c.cliente_doc || '')}</div>
+</div>
+<table class="items">
+    <thead><tr>
+        <th style="width:32px">#</th><th>Descripción</th>
+        <th style="width:50px;text-align:center">U.M.</th>
+        <th style="width:70px;text-align:right">Cant.</th>
+        <th style="width:90px;text-align:right">P. Unit.</th>
+        <th style="width:110px;text-align:right">Total</th>
+    </tr></thead>
+    <tbody>${itemsHtml || '<tr><td colspan="6" style="padding:12px;text-align:center;color:#94a3b8">Sin ítems</td></tr>'}</tbody>
+</table>
+<div style="display:flex;justify-content:flex-end">
+    <div style="min-width:280px">
+        ${parseFloat(c.gravada || 0) > 0 ? `<div class="tot-row"><span style="color:#64748b">Op. Gravada</span><strong>${formatMoney(c.gravada)}</strong></div>` : ''}
+        ${parseFloat(c.igv || 0) > 0 ? `<div class="tot-row"><span style="color:#64748b">IGV</span><strong>${formatMoney(c.igv)}</strong></div>` : ''}
+        <div class="tot-row total"><span>TOTAL</span><span>${formatMoney(c.total || 0)}</span></div>
+    </div>
+</div>
+<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>
+</body></html>`;
+        const w = window.open('', '_blank', 'width=900,height=700');
+        w.document.write(html);
+        w.document.close();
+    } catch(e) {
+        Toast.error('Error al preparar la impresión.');
+    }
 }
 
 // ── Notas de credito ──

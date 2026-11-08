@@ -149,4 +149,56 @@ class Comprobante
             'dias'         => $dias,
         ];
     }
+
+    /**
+     * Comprobante + items + empresa emisora (para impresión).
+     * Incluye el logo en base64 si existe en disco.
+     */
+    public static function detalleConItems(PDO $db, int $id): ?array
+    {
+        $stmt = $db->prepare("
+            SELECT ce.*,
+                   COALESCE(NULLIF(cl.razon_social,''), NULLIF(cl.nombre_completo,''), 'Cliente General') AS cliente_nombre,
+                   COALESCE(NULLIF(cl.numero_documento,''), NULLIF(cl.ruc_dni,''), '-') AS cliente_doc
+            FROM comprobantes_electronicos ce
+            LEFT JOIN clientes cl ON cl.id = ce.cliente_id
+            WHERE ce.id = :id");
+        $stmt->execute([':id' => $id]);
+        $cmp = $stmt->fetch();
+        if (!$cmp) return null;
+
+        $stmt = $db->prepare("SELECT * FROM comprobante_detalles WHERE comprobante_electronico_id = :id ORDER BY id");
+        $stmt->execute([':id' => $id]);
+        $items = $stmt->fetchAll();
+
+        $emp = $db->query("SELECT razon_social, nombre_comercial, ruc, direccion_fiscal, telefono, logo_path FROM empresa_emisora WHERE activo ORDER BY id LIMIT 1")->fetch() ?: [];
+
+        $logoB64 = null;
+        $logoCandidates = [];
+        if (!empty($emp['logo_path'])) {
+            $logoCandidates[] = __DIR__ . '/../../../../' . ltrim($emp['logo_path'], '/');
+        }
+        $logoCandidates[] = __DIR__ . '/../../../../assets/iconos/logo.jpeg';
+        foreach ($logoCandidates as $lf) {
+            if (file_exists($lf)) {
+                $ext = strtolower(pathinfo($lf, PATHINFO_EXTENSION));
+                $mime = match($ext) { 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml', default => 'image/jpeg' };
+                $logoB64 = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($lf));
+                break;
+            }
+        }
+
+        return [
+            'comprobante' => $cmp,
+            'items'       => $items,
+            'empresa'     => [
+                'nombre'       => $emp['nombre_comercial'] ?: ($emp['razon_social'] ?? 'IndustriaMG'),
+                'razon_social' => $emp['razon_social'] ?? '',
+                'ruc'          => $emp['ruc'] ?? '',
+                'direccion'    => $emp['direccion_fiscal'] ?? '',
+                'telefono'     => $emp['telefono'] ?? '',
+                'logo'         => $logoB64,
+            ],
+        ];
+    }
 }

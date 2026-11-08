@@ -14,14 +14,15 @@ class FacturacionController
     public static function handle(string $action, array $input, PDO $db): bool
     {
         switch ($action) {
-            case 'fact_reporte':        self::reporte($input, $db);        return true;
-            case 'fact_notas_credito':  self::notasCredito($input, $db);   return true;
-            case 'fact_rentabilidad':   self::rentabilidad($input, $db);   return true;
-            case 'fact_reenvios':       self::reenvios($input, $db);       return true;
-            case 'fact_reenviar':       self::reenviar($input, $db);       return true;
-            case 'fact_procesar_cola':  self::procesarCola($db);           return true;
-            case 'fact_documentacion':  self::documentacion();             return true;
-            default:                    return false;
+            case 'fact_reporte':             self::reporte($input, $db);        return true;
+            case 'fact_notas_credito':       self::notasCredito($input, $db);   return true;
+            case 'fact_rentabilidad':        self::rentabilidad($input, $db);   return true;
+            case 'fact_reenvios':            self::reenvios($input, $db);       return true;
+            case 'fact_reenviar':            self::reenviar($input, $db);       return true;
+            case 'fact_procesar_cola':       self::procesarCola($db);           return true;
+            case 'fact_documentacion':       self::documentacion();             return true;
+            case 'fact_comprobante_detalle': self::comprobanteDetalle($input, $db); return true;
+            default:                         return false;
         }
     }
 
@@ -73,5 +74,14 @@ class FacturacionController
     public static function documentacion(): void
     {
         jsonResponse(['ok' => true, 'doc' => SunatDoc::todo()]);
+    }
+
+    public static function comprobanteDetalle(array $in, PDO $db): void
+    {
+        $id = (int)($in['id'] ?? 0);
+        if ($id <= 0) jsonResponse(['error' => 'Comprobante no valido.'], 400);
+        $data = Comprobante::detalleConItems($db, $id);
+        if (!$data) jsonResponse(['error' => 'Comprobante no encontrado.'], 404);
+        jsonResponse(['ok' => true] + $data);
     }
 }
