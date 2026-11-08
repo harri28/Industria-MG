@@ -604,7 +604,13 @@ try { switch ($action) {
                 ':costo'=>$costoTotal,':precio'=>$precioVenta,':estado'=>$estadoVenta,':ds'=>$dispSiempre]);
             $maquinariaId = (int)$stmt->fetchColumn();
         }
-        ventaSincronizarProductoMaquinaria($db, $maquinariaId);
+        $productoId = ventaSincronizarProductoMaquinaria($db, $maquinariaId);
+        // Persiste el stock ingresado en el producto vinculado (válido con o sin "Siempre disponible")
+        if ($productoId && isset($input['stock']) && $input['stock'] !== '') {
+            $stockVal = max(0, (int)$input['stock']);
+            $db->prepare("UPDATE productos SET stock_actual = :s WHERE id = :id")
+               ->execute([':s' => $stockVal, ':id' => $productoId]);
+        }
         jsonResponse(['ok'=>true]);
 
     // ================================================================

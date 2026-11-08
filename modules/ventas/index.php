@@ -509,11 +509,11 @@ foreach ($logoCandidates as $lf) {
         </div>
         <div class="table-responsive">
             <table><thead><tr>
-                <th>Codigo</th><th>Modelo</th><th>Nro. Serie</th><th>Cliente</th>
-                <th class="text-right">Costo</th><th class="text-right">Precio venta</th>
-                <th>Venta / OV</th><th>Garantia</th><th>Acciones</th>
+                <th>Codigo</th><th>Modelo</th><th>Nro. Serie</th><th>Stock</th>
+                <th>Costo</th><th>Precio venta</th>
+                <th>Acciones</th>
             </tr></thead>
-            <tbody id="maquinariasBody"><tr><td colspan="9" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
+            <tbody id="maquinariasBody"><tr><td colspan="7" class="text-center"><div class="loading"><div class="spinner"></div></div></td></tr></tbody></table>
         </div>
     </div>
 </div>
@@ -672,14 +672,21 @@ foreach ($logoCandidates as $lf) {
                     </select>
                 </div>
                 <div class="form-group"><label class="form-label">Fecha de Venta</label><input type="date" class="form-control" id="maqFechaVenta"></div>
-                <div class="form-group" style="grid-column:span 2"><label class="form-label">Garantia (meses)</label>
-                    <input type="number" class="form-control" id="maqGarantia" value="12" min="0">
-                </div>
-                <div class="form-group" style="grid-column:span 2">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem">
-                        <input type="checkbox" id="maqDisponibleSiempre">
-                        Disponible siempre (fabricada a pedido, no controla stock en Ventas)
-                    </label>
+                <div class="form-group" style="grid-column:span 2;display:grid;grid-template-columns:110px 110px 1fr;gap:12px;margin-bottom:0">
+                    <div>
+                        <label class="form-label">Garantía (meses)</label>
+                        <input type="number" class="form-control" id="maqGarantia" value="12" min="0">
+                    </div>
+                    <div>
+                        <label class="form-label">Stock</label>
+                        <input type="number" class="form-control" id="maqStock" value="1" min="0" step="1">
+                    </div>
+                    <div>
+                        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-size:.82rem;padding-top:18px;line-height:1.25">
+                            <input type="checkbox" id="maqDisponibleSiempre" style="margin-top:2px">
+                            <span>Siempre disponible<br><span style="font-size:.72rem;color:#94a3b8;font-weight:400">(fabricada a pedido, no controla stock)</span></span>
+                        </label>
+                    </div>
                 </div>
                 <div class="form-group" style="grid-column:span 2"><label class="form-label">Descripcion</label><textarea class="form-control" id="maqDesc" rows="2"></textarea></div>
             </div>
@@ -1971,6 +1978,12 @@ function ventaTipoLabel(tipo) {
     return { boleta:'Boleta', factura:'Factura', nota_venta:'Nota de venta' }[tipo] || 'Venta';
 }
 
+function acortarComprobante(numero) {
+    if (!numero) return '';
+    // Reduce el padding del correlativo a 4 dígitos: B001-00000012 → B001-0012, F001-00000005 → F001-0005
+    return String(numero).replace(/^([A-Z]\d{3})-0*(\d+)$/i, (_, serie, corr) => `${serie}-${corr.padStart(4,'0')}`);
+}
+
 function ventaPagoLabel(v) {
     if (parseFloat(v.monto_credito || 0) > 0 || v.tipo_pago === 'credito') return 'Credito';
     if (parseInt(v.pagos_count || 0, 10) > 1) return 'Mixto';
@@ -2039,17 +2052,12 @@ function accionesVentaHistorial(v) {
     const tipo = v.tipo_comprobante || '';
     const tieneCdr = !!v.cdr_path;
     const esElectronico = ['boleta', 'factura'].includes(tipo);
-    const reenviar = compId && esElectronico && !tieneCdr && !v.anulado
-        ? `<button class="btn btn-outline btn-xs" onclick="reenviarVentaSunat(${compId})" title="Reenviar a SUNAT"><i class="fa fa-paper-plane"></i></button>`
-        : '';
     const notaCredito = compId && esElectronico && tieneCdr && !v.anulado
         ? `<button class="btn btn-outline btn-xs" onclick="abrirNotaCreditoVenta(${compId}, '${esc(v.comprobante_numero || '')}')" title="Nota de credito"><i class="fa fa-file-circle-minus"></i></button>`
         : '';
     return `
         <div style="display:flex;gap:5px;flex-wrap:wrap">
-            <button class="btn btn-outline btn-xs" onclick="verDetalleVenta(${id})" title="Ver detalle"><i class="fa fa-eye"></i></button>
             <button class="btn btn-outline btn-xs" onclick="imprimirVentaHistorial(${id})" title="Imprimir A4"><i class="fa fa-print"></i></button>
-            ${reenviar}
             ${notaCredito}
         </div>
     `;
@@ -2114,10 +2122,9 @@ async function cargarVentasHistorial() {
             return;
         }
         tbody.innerHTML = lista.map(v => `
-            <tr>
+            <tr style="cursor:pointer" onclick="verDetalleVenta(${parseInt(v.id || 0, 10)})">
                 <td>
-                    <div class="font-semibold text-primary">${esc(v.numero)}</div>
-                    <div class="text-xs text-muted">${esc(v.comprobante_numero || 'Sin comprobante')}</div>
+                    <div class="font-semibold text-primary">${esc(acortarComprobante(v.comprobante_numero) || 'Sin comprobante')}</div>
                 </td>
                 <td class="text-sm">${ventaFechaHoraLabel(v.created_at)}</td>
                 <td>
@@ -2128,10 +2135,10 @@ async function cargarVentasHistorial() {
                 <td class="text-sm" style="text-transform:capitalize">${esc(ventaPagoLabel(v))}</td>
                 <td><span class="badge badge-pruebas">${parseInt(v.items_count || 0, 10)} item(s)</span></td>
                 <td>${badgeVentaEstado(v.estado, v.anulado)}</td>
-                <td>${archivoVentaBtn(v.xml_path, 'XML')}</td>
-                <td>${cdrVentaCell(v)}</td>
+                <td onclick="event.stopPropagation()">${archivoVentaBtn(v.xml_path, 'XML')}</td>
+                <td onclick="event.stopPropagation()">${cdrVentaCell(v)}</td>
                 <td class="text-right font-semibold">${formatMoney(v.total || 0)}</td>
-                <td>${accionesVentaHistorial(v)}</td>
+                <td onclick="event.stopPropagation()">${accionesVentaHistorial(v)}</td>
             </tr>
         `).join('');
         ventasHistorialTable = reiniciarDataTable('ventasHistorialTable', '#tablaVentasHistorial', [[1, 'desc']]);
@@ -2847,32 +2854,18 @@ async function cargarMaquinarias() {
     }
 
     const lista = maquinariasVenta;
-    if (!lista.length) { tbody.innerHTML='<tr><td colspan="9" class="text-center text-muted">Sin maquinarias registradas.</td></tr>'; return; }
-    const gBadge = { vigente:'badge-entrega', vencida:'badge-retrasado', sin_garantia:'badge-cancelado' };
+    if (!lista.length) { tbody.innerHTML='<tr><td colspan="7" class="text-center text-muted">Sin maquinarias registradas.</td></tr>'; return; }
     const vBadge = { disponible:'badge-entrega', vendida:'badge-fabricacion', reservada:'badge-pruebas' };
-    tbody.innerHTML = lista.map(m => `<tr>
+    tbody.innerHTML = lista.map(m => `<tr style="cursor:pointer" onclick="editarMaquinaria(${m.id})">
         <td class="text-xs text-muted">${esc(m.codigo||'-')}</td>
-        <td>
-            <div class="font-semibold">${esc(m.modelo||'-')}</div>
-            <div class="text-xs text-muted">${esc(m.producto_nombre || m.producto_codigo || 'Producto asociado pendiente')}</div>
-        </td>
+        <td class="font-semibold">${esc(m.modelo||'-')}</td>
         <td class="text-xs">${esc(m.numero_serie||'-')}</td>
-        <td class="text-sm">${esc(m.cliente_nombre||'-')}</td>
-        <td class="text-right font-semibold">${formatMoney(m.costo_total_calc || m.costo_total || 0)}</td>
-        <td class="text-right font-bold" style="color:var(--primary)">${formatMoney(m.precio_venta_calc || m.precio_venta || 0)}</td>
-        <td>
-            <span class="badge ${vBadge[m.estado_venta]||'badge-normal'}">${esc((m.estado_venta||'disponible').replace('_',' '))}</span>
-            ${m.orden_venta_codigo ? `<div class="text-xs text-muted">${esc(m.orden_venta_codigo)}</div>` : (m.fecha_venta?`<div class="text-xs text-muted">${formatDate(m.fecha_venta)}</div>`:'')}
-        </td>
-        <td>
-            <span class="badge ${gBadge[m.estado_garantia]||'badge-normal'}">${esc((m.estado_garantia||'sin_garantia').replace('_',' '))}</span>
-            <div class="text-xs text-muted">${formatDate(m.garantia_hasta)}${m.dias_garantia!==null&&m.estado_garantia==='vigente'?` (${m.dias_garantia}d)`:''}</div>
-        </td>
-        <td>
-            ${(m.estado_venta||'disponible') !== 'vendida'
-                ? `<button class="btn btn-success btn-xs" onclick="abrirVentaMaquinaria(${m.id})" title="Vender maquinaria"><i class="fa fa-cash-register"></i></button>`
-                : ''}
-            <button class="btn btn-outline btn-xs" onclick="editarMaquinaria(${m.id})"><i class="fa fa-pencil"></i></button>
+        <td class="font-semibold">${m.disponible_siempre
+            ? '<span style="color:#16a34a">Siempre disponible</span>'
+            : (m.estado_venta === 'vendida' ? 0 : (m.stock_actual !== null && m.stock_actual !== undefined ? parseInt(parseFloat(m.stock_actual)) : 1))}</td>
+        <td class="font-semibold">${formatMoney(m.costo_total_calc || m.costo_total || 0)}</td>
+        <td class="font-bold" style="color:var(--primary)">${formatMoney(m.precio_venta_calc || m.precio_venta || 0)}</td>
+        <td onclick="event.stopPropagation()">
             ${(m.estado_venta||'disponible') === 'vendida'
                 ? `<button class="btn btn-outline btn-xs" onclick="nuevoServicioMaq(${m.id})" title="Nuevo servicio"><i class="fa fa-screwdriver-wrench"></i></button>`
                 : ''}
@@ -2929,6 +2922,7 @@ function abrirModalMaquinaria() {
     document.getElementById('maqCosto').value='0.00'; document.getElementById('maqPrecio').value='0.00';
     document.getElementById('maqEstadoVenta').value='disponible';
     document.getElementById('maqDisponibleSiempre').checked=false;
+    document.getElementById('maqStock').value=1;
     document.getElementById('maqCatalogo').value=''; onMaqCatalogoChange();
     document.getElementById('tituloMaq').textContent='Registrar Maquinaria';
     Modal.open('modalMaquinaria');
@@ -2955,6 +2949,9 @@ async function editarMaquinaria(id) {
     document.getElementById('maqPrecio').value=parseFloat(m.precio_venta_calc || m.precio_venta || 0).toFixed(2);
     document.getElementById('maqEstadoVenta').value=m.estado_venta || 'disponible';
     document.getElementById('maqDisponibleSiempre').checked = normalizarBooleano(m.disponible_siempre);
+    document.getElementById('maqStock').value = (m.stock_actual !== null && m.stock_actual !== undefined)
+        ? Math.max(0, parseInt(parseFloat(m.stock_actual)))
+        : (m.estado_venta === 'vendida' ? 0 : 1);
     document.getElementById('maqGarantia').value=m.garantia_meses||12; document.getElementById('maqDesc').value=m.descripcion||'';
     document.getElementById('tituloMaq').textContent='Editar Maquinaria';
     Modal.open('modalMaquinaria');
@@ -2971,6 +2968,7 @@ async function guardarMaquinaria() {
         estado_venta:document.getElementById('maqEstadoVenta').value,
         fecha_venta:document.getElementById('maqFechaVenta').value, garantia_meses:document.getElementById('maqGarantia').value,
         disponible_siempre:document.getElementById('maqDisponibleSiempre').checked,
+        stock:document.getElementById('maqStock').value,
         descripcion:document.getElementById('maqDesc').value});
     if (res.ok) { Toast.success('Maquinaria guardada.'); Modal.close('modalMaquinaria'); cargarMaquinarias(); }
     else Toast.error(res.error||'Error.');
