@@ -254,13 +254,59 @@ $page_breadcrumb = $page_breadcrumb ?? '';
         </a>
     </nav>
 
-    <div class="sidebar-footer">
+    <div class="sidebar-footer" id="userMenuWrap" style="cursor:pointer;position:relative;user-select:none"
+         onclick="toggleUserMenu(event)">
         <div class="user-avatar"><?= strtoupper(substr($usuario['nombre'], 0, 1)) ?></div>
-        <div>
+        <div style="flex:1;min-width:0">
             <div class="user-name"><?= htmlspecialchars($usuario['nombre']) ?></div>
             <div class="user-role"><?= htmlspecialchars($usuario['rol'] ?? 'Administrador') ?></div>
         </div>
+        <i class="fa fa-chevron-up" id="userMenuChevron"
+           style="font-size:.7rem;opacity:.6;transition:transform .2s;flex-shrink:0"></i>
+
+        <!-- Dropdown: aparece sobre el footer -->
+        <div id="userMenu" style="display:none;position:absolute;bottom:calc(100% + 6px);left:8px;right:8px;
+             background:#fff;border:1px solid #e2e8f0;border-radius:10px;
+             box-shadow:0 -4px 20px rgba(0,0,0,.12);overflow:hidden;z-index:3000">
+            <a href="<?= APP_BASE ?>modules/configuracion/index.php#tabUsuarios"
+               onclick="event.stopPropagation()"
+               style="display:flex;align-items:center;gap:10px;padding:11px 14px;
+                      text-decoration:none;color:#1e293b;font-size:.84rem;
+                      border-bottom:1px solid #f1f5f9;transition:background .12s"
+               onmouseover="this.style.background='#f8fafc'"
+               onmouseout="this.style.background=''">
+                <i class="fa fa-user-gear" style="color:#1d4ed8;width:16px;text-align:center"></i>
+                Ver Perfil
+            </a>
+            <a href="<?= APP_BASE ?>logout.php"
+               onclick="event.stopPropagation()"
+               style="display:flex;align-items:center;gap:10px;padding:11px 14px;
+                      text-decoration:none;color:#dc2626;font-size:.84rem;transition:background .12s"
+               onmouseover="this.style.background='#fff5f5'"
+               onmouseout="this.style.background=''">
+                <i class="fa fa-right-from-bracket" style="width:16px;text-align:center"></i>
+                Cerrar sesión
+            </a>
+        </div>
     </div>
+    <script>
+    (function(){
+        window.toggleUserMenu = function(e) {
+            e.stopPropagation();
+            var menu    = document.getElementById('userMenu');
+            var chevron = document.getElementById('userMenuChevron');
+            var open    = menu.style.display !== 'none';
+            menu.style.display = open ? 'none' : 'block';
+            if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+        };
+        document.addEventListener('click', function() {
+            var menu    = document.getElementById('userMenu');
+            var chevron = document.getElementById('userMenuChevron');
+            if (menu) menu.style.display = 'none';
+            if (chevron) chevron.style.transform = '';
+        });
+    })();
+    </script>
 </aside>
 
 

@@ -765,6 +765,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sunatServer) {
         sunatServer.addEventListener('change', () => actualizarBadgeSunat(sunatServer.value));
     }
+
+    // Abrir tab directo si hay hash en la URL (ej: #tabUsuarios desde "Ver Perfil")
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+        const tabBtn = document.querySelector(`.tab[data-target="${hash}"]`);
+        const tabContent = document.getElementById(hash);
+        if (tabBtn && tabContent) {
+            const group = tabBtn.dataset.group || 'cfg';
+            document.querySelectorAll(`.tab[data-group="${group}"]`).forEach(t => t.classList.remove('active'));
+            document.querySelectorAll(`.tab-content[data-group="${group}"]`).forEach(c => c.classList.remove('active'));
+            tabBtn.classList.add('active');
+            tabContent.classList.add('active');
+            tabBtn.scrollIntoView({ block: 'nearest', inline: 'center' });
+        }
+    }
 });
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
